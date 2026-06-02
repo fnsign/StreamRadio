@@ -1,0 +1,283 @@
+.streamradio-player,
+.streamradio-search-modal,
+.streamradio-picker-modal,
+.streamradio-timer-modal,
+.streamradio-release-notes {
+  color: var(--text-normal);
+}
+
+.streamradio-player {
+  padding: var(--size-4-4);
+}
+
+.streamradio-player-header,
+.streamradio-favorite-row,
+.streamradio-result-row,
+.streamradio-picker-row {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-3);
+}
+
+.streamradio-player-header {
+  margin-bottom: var(--size-4-5);
+}
+
+.streamradio-player-details,
+.streamradio-favorite-text,
+.streamradio-result-text {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.streamradio-player-title,
+.streamradio-station-name {
+  color: var(--text-normal);
+  font-weight: var(--font-semibold);
+  font-size: var(--font-ui-small);
+  overflow-wrap: anywhere;
+}
+
+.streamradio-player-title {
+  font-size: var(--font-ui-medium);
+}
+
+.streamradio-station-meta,
+.streamradio-timer-label,
+.streamradio-page-label {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  line-height: var(--line-height-tight);
+}
+
+.streamradio-station-logo,
+.streamradio-logo-fallback {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  border-radius: var(--radius-s);
+}
+
+.streamradio-station-logo {
+  object-fit: contain;
+  background: var(--background-secondary);
+}
+
+.streamradio-player-logo {
+  width: 64px;
+  height: 64px;
+  flex: 0 0 64px;
+  border-radius: var(--radius-s);
+  object-fit: contain;
+  background: var(--background-secondary);
+}
+
+.streamradio-logo-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  background: var(--background-secondary);
+}
+
+.streamradio-logo-fallback svg,
+.streamradio-icon-button svg,
+.streamradio-control-button svg,
+.streamradio-volume-icon svg,
+.streamradio-drag-handle svg {
+  width: 18px;
+  height: 18px;
+}
+
+.streamradio-control-button svg,
+.streamradio-volume-icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+.streamradio-controls,
+.streamradio-row-actions,
+.streamradio-modal-actions,
+.streamradio-pagination {
+  display: flex;
+  align-items: center;
+  gap: var(--size-2-2);
+}
+
+.streamradio-controls {
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: var(--size-4-4);
+}
+
+.streamradio-control-button,
+.streamradio-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.streamradio-control-button {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-s);
+  color: var(--text-normal);
+  background: var(--background-secondary);
+}
+
+.streamradio-control-button:hover {
+  color: var(--text-normal);
+  background: var(--background-modifier-hover);
+}
+
+.streamradio-icon-button {
+  width: 32px;
+  height: 32px;
+}
+
+.streamradio-wide-button {
+  width: 100%;
+  margin-top: var(--size-4-4);
+}
+
+.streamradio-volume-control {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--size-2-2);
+  margin-top: var(--size-4-3);
+}
+
+.streamradio-volume-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+.streamradio-volume-control input[type='range'] {
+  width: min(180px, 70%);
+}
+
+.streamradio-timer-label {
+  margin-top: var(--size-4-5);
+  text-align: center;
+}
+
+.streamradio-empty-state {
+  color: var(--text-muted);
+  padding: var(--size-4-3) 0;
+}
+
+.streamradio-favorite-list,
+.streamradio-results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-2-2);
+  margin-top: var(--size-4-3);
+}
+
+.streamradio-favorite-row,
+.streamradio-result-row,
+.streamradio-picker-row {
+  width: 100%;
+  min-height: 52px;
+  padding: var(--size-2-2);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  background: var(--background-primary);
+}
+
+.streamradio-picker-row {
+  text-align: left;
+  cursor: pointer;
+}
+
+.streamradio-picker-row:hover,
+.streamradio-favorite-row:hover,
+.streamradio-result-row:hover {
+  background: var(--background-modifier-hover);
+}
+
+.streamradio-drag-handle {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-faint);
+  cursor: grab;
+}
+
+.streamradio-favorite-row.is-dragging {
+  opacity: 0.65;
+}
+
+.streamradio-search-row {
+  margin-bottom: var(--size-4-3);
+}
+
+.streamradio-search-row input {
+  width: 100%;
+}
+
+.streamradio-filter-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--size-2-2);
+  margin-bottom: var(--size-4-3);
+}
+
+.streamradio-filter-row select {
+  width: 100%;
+  min-width: 0;
+}
+
+.streamradio-modal-actions {
+  justify-content: flex-end;
+  margin-bottom: var(--size-4-3);
+}
+
+.streamradio-results {
+  max-height: min(52vh, 520px);
+  overflow: auto;
+}
+
+.streamradio-pagination {
+  justify-content: center;
+  margin-top: var(--size-4-3);
+}
+
+.streamradio-timer-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--size-2-2);
+  margin-bottom: var(--size-4-4);
+}
+
+.streamradio-radio-option {
+  display: flex;
+  align-items: center;
+  gap: var(--size-2-2);
+  min-width: 0;
+}
+
+.streamradio-custom-timer input[type='text'] {
+  min-width: 0;
+  width: 92px;
+}
+
+@media (max-width: 560px) {
+  .streamradio-filter-row,
+  .streamradio-timer-options {
+    grid-template-columns: 1fr;
+  }
+
+  .streamradio-result-row,
+  .streamradio-favorite-row,
+  .streamradio-picker-row {
+    align-items: flex-start;
+  }
+
+  .streamradio-row-actions {
+    flex-direction: column;
+  }
+}

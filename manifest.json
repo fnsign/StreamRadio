@@ -1,0 +1,10 @@
+{
+  "id": "streamradio",
+  "name": "StreamRadio",
+  "version": "0.1.0",
+  "minAppVersion": "1.0.0",
+  "description": "Listen to favorite web radio stations from the right sidebar in Obsidian.",
+  "author": "fnsign",
+  "authorUrl": "",
+  "isDesktopOnly": true
+}

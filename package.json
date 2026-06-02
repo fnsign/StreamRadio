@@ -1,0 +1,26 @@
+{
+  "name": "streamradio",
+  "version": "0.1.0",
+  "description": "Obsidian plugin for listening to favorite web radio stations from radio-browser.info.",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs --watch",
+    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+    "typecheck": "tsc -noEmit -skipLibCheck"
+  },
+  "keywords": [
+    "obsidian",
+    "radio",
+    "plugin"
+  ],
+  "author": "fnsign",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.17.10",
+    "builtin-modules": "^3.3.0",
+    "esbuild": "^0.24.0",
+    "obsidian": "latest",
+    "tslib": "^2.8.1",
+    "typescript": "^5.7.2"
+  }
+}

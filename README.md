@@ -5,7 +5,7 @@
 # StreamRadio
 
 StreamRadio is an Obsidian plugin for listening to web radio stations from radio-browser.info, searching and saving favorites, and which lives in the right sidebar.
-As an additional option, it also provides a highly customizable and appealing Pomodoro timer for working focused on your task, accompanied by the tunes you favor.
+As an additional option, it also provides a highly customizable and appealing Pomodoro timer for working focused on your tasks, accompanied by the tunes you favor.
 
 ![Radio and Pomodoro|center](./assets/Radio_and_Pomodoro.png)
 
@@ -36,6 +36,9 @@ The player shows:
 - Timer status
 - Optinal: Pomodoro timer with interval markers, focus/break labels, countdown ring, and start, pause, restart, skip, and reset controls
 
+![Short break](./assets/Short_break.png)
+
+![Long break](./assets/Long_break.png)
 
 ## Settings
 

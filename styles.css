@@ -6,6 +6,30 @@
   color: var(--text-normal);
 }
 
+.streamradio-settings-tabs {
+  display: flex;
+  gap: var(--size-2-2);
+  margin-bottom: var(--size-4-4);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.streamradio-settings-tab {
+  padding: var(--size-2-2) var(--size-4-3);
+  color: var(--text-muted);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.streamradio-settings-tab:hover,
+.streamradio-settings-tab.is-active {
+  color: var(--text-normal);
+  border-bottom-color: var(--interactive-accent);
+  background: transparent;
+}
+
 .streamradio-player {
   padding: var(--size-4-4);
 }
@@ -165,6 +189,130 @@
   text-align: center;
 }
 
+.streamradio-pomodoro {
+  --streamradio-pomodoro-color: var(--text-normal);
+  --streamradio-pomodoro-label-color: var(--interactive-accent);
+  display: flex;
+  justify-content: center;
+  margin-top: var(--size-4-6);
+}
+
+.streamradio-pomodoro-dial {
+  position: relative;
+  width: min(100%, 244px);
+  aspect-ratio: 1;
+}
+
+.streamradio-pomodoro-ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.streamradio-pomodoro-ring-elapsed,
+.streamradio-pomodoro-ring-remaining {
+  fill: none;
+  stroke-width: 3.5;
+}
+
+.streamradio-pomodoro-ring-elapsed {
+  stroke: var(--background-modifier-border);
+}
+
+.streamradio-pomodoro-ring-remaining {
+  stroke: var(--streamradio-pomodoro-color);
+  stroke-linecap: round;
+  transform: rotate(-90deg) scaleX(-1);
+  transform-origin: 60px 60px;
+  transition: stroke-dasharray 180ms linear;
+}
+
+.streamradio-pomodoro-ring-point {
+  fill: var(--streamradio-pomodoro-color);
+  stroke: var(--background-primary);
+  stroke-width: 1.5;
+}
+
+.streamradio-pomodoro-content {
+  position: absolute;
+  inset: 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--size-2-2);
+  text-align: center;
+}
+
+.streamradio-pomodoro-phase {
+  color: var(--streamradio-pomodoro-label-color);
+  font-size: var(--font-ui-smaller);
+  font-weight: var(--font-medium);
+  line-height: var(--line-height-tight);
+}
+
+.streamradio-pomodoro-time {
+  color: var(--streamradio-pomodoro-color);
+  font-variant-numeric: tabular-nums;
+  font-size: 2.1rem;
+  font-weight: var(--font-semibold);
+  line-height: 1;
+}
+
+.streamradio-pomodoro-dots,
+.streamradio-pomodoro-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.streamradio-pomodoro-dots {
+  gap: 6px;
+  min-height: 14px;
+}
+
+.streamradio-pomodoro-dot {
+  width: 8px;
+  height: 8px;
+  border: 1px solid var(--streamradio-pomodoro-color);
+  border-radius: 50%;
+  background: transparent;
+}
+
+.streamradio-pomodoro-dot.is-complete {
+  background: var(--streamradio-pomodoro-color);
+}
+
+.streamradio-pomodoro-dot.is-active:not(.is-complete) {
+  animation: streamradio-pomodoro-pulse 1.4s ease-in-out infinite;
+}
+
+.streamradio-pomodoro-separator {
+  width: 10px;
+  height: 1px;
+  background: var(--text-faint);
+}
+
+.streamradio-pomodoro-controls {
+  gap: var(--size-2-2);
+  min-height: 32px;
+}
+
+@keyframes streamradio-pomodoro-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.45;
+    transform: scale(1.35);
+  }
+}
+
 .streamradio-empty-state {
   color: var(--text-muted);
   padding: var(--size-4-3) 0;
@@ -289,5 +437,17 @@
 
   .streamradio-row-actions {
     flex-direction: column;
+  }
+
+  .streamradio-pomodoro-dial {
+    width: min(100%, 224px);
+  }
+
+  .streamradio-pomodoro-content {
+    inset: 28px;
+  }
+
+  .streamradio-pomodoro-time {
+    font-size: 1.9rem;
   }
 }

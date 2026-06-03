@@ -196,7 +196,6 @@
 .streamradio-pomodoro {
   --streamradio-pomodoro-ring-color: var(--interactive-accent);
   --streamradio-pomodoro-label-color: var(--interactive-accent);
-  --streamradio-pomodoro-time-color: var(--interactive-accent);
   display: flex;
   justify-content: center;
   margin-top: var(--size-4-6);
@@ -259,7 +258,7 @@
 }
 
 .streamradio-pomodoro-time {
-  color: var(--streamradio-pomodoro-time-color);
+  color: var(--text-normal);
   font-variant-numeric: tabular-nums;
   font-size: 2.1rem;
   font-weight: var(--font-semibold);
@@ -297,7 +296,7 @@
 .streamradio-pomodoro-separator {
   width: 1px;
   height: 12px;
-  background: var(--text-faint);
+  background: var(--streamradio-pomodoro-ring-color);
 }
 
 .streamradio-pomodoro-controls {

@@ -1,11 +1,11 @@
 # StreamRadio Release Notes
 
-## Version 0.1.0
+## Version 1.0.0
 
 ### Added
 
 - Added station search through radio-browser.info.
-- Added favorite station management with a maximum of 16 favorites.
+- Added favorite station management.
 - Added drag and drop sorting for favorites.
 - Added station preview playback in the search modal.
 - Added a right sidebar player view with start, pause, next, station picker, and sleep timer controls.

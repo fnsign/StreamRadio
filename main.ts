@@ -19,7 +19,6 @@ import releaseNotes from './RELEASENOTES.md';
 
 const VIEW_TYPE_STREAMRADIO = 'streamradio-player-view';
 const RADIO_BROWSER_BASE_URL = 'https://all.api.radio-browser.info/json';
-const MAX_FAVORITES = 16;
 const SEARCH_PAGE_SIZE = 20;
 const SEARCH_COUNT_LIMIT = 100000;
 const TIMER_REFRESH_INTERVAL_MS = 30000;
@@ -159,13 +158,11 @@ export default class StreamRadioPlugin extends Plugin {
   async loadSettings(): Promise<void> {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
     this.settings.favorites = this.settings.favorites
-      .filter((station) => station.stationuuid && station.streamUrl)
-      .slice(0, MAX_FAVORITES);
+      .filter((station) => station.stationuuid && station.streamUrl);
     this.settings.volume = clampVolume(this.settings.volume ?? DEFAULT_SETTINGS.volume);
   }
 
   async saveSettings(): Promise<void> {
-    this.settings.favorites = this.settings.favorites.slice(0, MAX_FAVORITES);
     if (!this.settings.favorites.some((station) => station.stationuuid === this.settings.activeStationId)) {
       this.settings.activeStationId = this.settings.favorites[0]?.stationuuid || '';
     }
@@ -381,7 +378,7 @@ export default class StreamRadioPlugin extends Plugin {
   }
 
   async saveFavorites(favorites: FavoriteStation[]): Promise<void> {
-    this.settings.favorites = favorites.slice(0, MAX_FAVORITES);
+    this.settings.favorites = favorites;
     await this.saveSettings();
   }
 
@@ -438,7 +435,7 @@ class StreamRadioSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName('Favorite stations')
-      .setDesc(`Add and arrange up to ${MAX_FAVORITES} favorite stations.`)
+      .setDesc('Add and arrange favorite stations.')
       .addButton((button) => {
         button
           .setButtonText('Add favorites')
@@ -881,11 +878,6 @@ class StationSearchModal extends Modal {
       checkbox.checked = this.selected.has(station.stationuuid);
       checkbox.addEventListener('change', () => {
         if (checkbox.checked) {
-          if (!this.selected.has(station.stationuuid) && this.selected.size >= MAX_FAVORITES) {
-            checkbox.checked = false;
-            new Notice(`StreamRadio can save up to ${MAX_FAVORITES} favorites.`);
-            return;
-          }
           this.selected.set(station.stationuuid, station);
         } else {
           this.selected.delete(station.stationuuid);
@@ -973,7 +965,7 @@ class StationSearchModal extends Modal {
   }
 
   private async saveSelected(): Promise<void> {
-    const favorites = Array.from(this.selected.values()).slice(0, MAX_FAVORITES);
+    const favorites = Array.from(this.selected.values());
     await this.plugin.saveFavorites(favorites);
     this.onSaved();
     this.close();
@@ -1109,7 +1101,7 @@ async function fetchRadioBrowser<T>(path: string): Promise<T> {
     url: `${RADIO_BROWSER_BASE_URL}${path}`,
     method: 'GET',
     headers: {
-      'User-Agent': 'StreamRadio/0.1.0',
+      'User-Agent': 'StreamRadio/1.0.0',
     },
   });
 

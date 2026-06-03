@@ -1796,7 +1796,7 @@ async function fetchRadioBrowser<T>(path: string): Promise<T> {
     url: `${RADIO_BROWSER_BASE_URL}${path}`,
     method: 'GET',
     headers: {
-      'User-Agent': 'StreamRadio/1.0.1',
+      'User-Agent': 'StreamRadio/1.1.0',
     },
   });
 

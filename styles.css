@@ -30,6 +30,10 @@
   background: transparent;
 }
 
+.streamradio-number-input {
+  width: 84px;
+}
+
 .streamradio-player {
   padding: var(--size-4-4);
 }
@@ -190,8 +194,9 @@
 }
 
 .streamradio-pomodoro {
-  --streamradio-pomodoro-color: var(--text-normal);
+  --streamradio-pomodoro-ring-color: var(--interactive-accent);
   --streamradio-pomodoro-label-color: var(--interactive-accent);
+  --streamradio-pomodoro-time-color: var(--interactive-accent);
   display: flex;
   justify-content: center;
   margin-top: var(--size-4-6);
@@ -222,15 +227,15 @@
 }
 
 .streamradio-pomodoro-ring-remaining {
-  stroke: var(--streamradio-pomodoro-color);
+  stroke: var(--streamradio-pomodoro-ring-color);
   stroke-linecap: round;
-  transform: rotate(-90deg) scaleX(-1);
+  transform: rotate(-90deg);
   transform-origin: 60px 60px;
   transition: stroke-dasharray 180ms linear;
 }
 
 .streamradio-pomodoro-ring-point {
-  fill: var(--streamradio-pomodoro-color);
+  fill: var(--streamradio-pomodoro-ring-color);
   stroke: var(--background-primary);
   stroke-width: 1.5;
 }
@@ -254,7 +259,7 @@
 }
 
 .streamradio-pomodoro-time {
-  color: var(--streamradio-pomodoro-color);
+  color: var(--streamradio-pomodoro-time-color);
   font-variant-numeric: tabular-nums;
   font-size: 2.1rem;
   font-weight: var(--font-semibold);
@@ -276,13 +281,13 @@
 .streamradio-pomodoro-dot {
   width: 8px;
   height: 8px;
-  border: 1px solid var(--streamradio-pomodoro-color);
+  border: 1px solid var(--streamradio-pomodoro-ring-color);
   border-radius: 50%;
   background: transparent;
 }
 
 .streamradio-pomodoro-dot.is-complete {
-  background: var(--streamradio-pomodoro-color);
+  background: var(--streamradio-pomodoro-ring-color);
 }
 
 .streamradio-pomodoro-dot.is-active:not(.is-complete) {
@@ -290,8 +295,8 @@
 }
 
 .streamradio-pomodoro-separator {
-  width: 10px;
-  height: 1px;
+  width: 1px;
+  height: 12px;
   background: var(--text-faint);
 }
 

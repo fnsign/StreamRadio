@@ -247,7 +247,7 @@ export default class StreamRadioPlugin extends Plugin {
     }
 
     this.settings.pomodoroIntervals = clampInteger(this.settings.pomodoroIntervals, DEFAULT_SETTINGS.pomodoroIntervals, 1, 8);
-    this.settings.pomodoroLongBreakEvery = clampInteger(this.settings.pomodoroLongBreakEvery, DEFAULT_SETTINGS.pomodoroLongBreakEvery, 1, this.settings.pomodoroIntervals);
+    this.settings.pomodoroLongBreakEvery = clampInteger(this.settings.pomodoroLongBreakEvery, DEFAULT_SETTINGS.pomodoroLongBreakEvery, 1, 8);
 
     if (!this.settings.pomodoroEnabled) {
       this.resetPomodoro(false);
@@ -481,7 +481,7 @@ export default class StreamRadioPlugin extends Plugin {
       this.clearPomodoroTimer();
     }
 
-    this.refreshPlayerViews();
+    this.refreshPomodoroViews();
   }
 
   resetCurrentPomodoroInterval(): void {
@@ -492,7 +492,7 @@ export default class StreamRadioPlugin extends Plugin {
       this.startPomodoroTimer();
     }
 
-    this.refreshPlayerViews();
+    this.refreshPomodoroViews();
   }
 
   skipToNextPomodoroInterval(): void {
@@ -501,6 +501,7 @@ export default class StreamRadioPlugin extends Plugin {
 
     if (nextIndex >= this.settings.pomodoroIntervals) {
       this.completePomodoroSession();
+      this.refreshPomodoroViews();
       return;
     }
 
@@ -510,7 +511,7 @@ export default class StreamRadioPlugin extends Plugin {
       this.startPomodoroTimer();
     }
 
-    this.refreshPlayerViews();
+    this.refreshPomodoroViews();
   }
 
   resetPomodoro(refresh = true): void {
@@ -520,7 +521,7 @@ export default class StreamRadioPlugin extends Plugin {
     this.pomodoroSession = this.createPomodoroSession('focus', 0, 0, false);
 
     if (refresh) {
-      this.refreshPlayerViews();
+      this.refreshPomodoroViews();
     }
   }
 
@@ -533,6 +534,22 @@ export default class StreamRadioPlugin extends Plugin {
     for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_STREAMRADIO)) {
       if (leaf.view instanceof StreamRadioPlayerView) {
         leaf.view.render();
+      }
+    }
+  }
+
+  refreshPomodoroViews(): void {
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_STREAMRADIO)) {
+      if (leaf.view instanceof StreamRadioPlayerView) {
+        leaf.view.renderPomodoroOnly();
+      }
+    }
+  }
+
+  refreshPomodoroDisplays(): void {
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_STREAMRADIO)) {
+      if (leaf.view instanceof StreamRadioPlayerView) {
+        leaf.view.updatePomodoroDisplay();
       }
     }
   }
@@ -578,9 +595,11 @@ export default class StreamRadioPlugin extends Plugin {
 
     if (session.remainingSeconds <= 0) {
       this.advancePomodoroPhase(session);
+      this.refreshPomodoroViews();
+      return;
     }
 
-    this.refreshPlayerViews();
+    this.refreshPomodoroDisplays();
   }
 
   private advancePomodoroPhase(session: PomodoroSessionState): void {
@@ -784,7 +803,7 @@ class StreamRadioSettingTab extends PluginSettingTab {
       });
 
     this.addNumberSetting(containerEl, 'Focus duration', 'Duration of one Pomodoro interval in minutes.', 'pomodoroFocusMinutes', 1, 240);
-    this.addColorSetting(containerEl, 'Timer color', 'Leave this on theme color to use the standard text color.', 'pomodoroTimerColor', '#000000', true);
+    this.addColorSetting(containerEl, 'Ring color', 'Leave this on theme color to use the accent color.', 'pomodoroTimerColor', '#000000', true);
     this.addNumberSetting(containerEl, 'Intervals', 'Number of focus intervals in one Pomodoro session.', 'pomodoroIntervals', 1, 8);
     this.addNumberSetting(containerEl, 'Short break duration', 'Duration of a short break in minutes.', 'pomodoroShortBreakMinutes', 1, 120);
     this.addColorSetting(containerEl, 'Short break color', 'Color used for the short break timer.', 'pomodoroShortBreakColor', DEFAULT_POMODORO_SHORT_BREAK_COLOR, false);
@@ -798,18 +817,35 @@ class StreamRadioSettingTab extends PluginSettingTab {
       .setName(name)
       .setDesc(description)
       .addText((text) => {
-        text
-          .setValue(String(this.plugin.settings[key]))
-          .onChange(async (value) => {
-            const fallback = Number(DEFAULT_SETTINGS[key]);
-            this.plugin.settings[key] = clampInteger(Number(value), fallback, min, max);
-            await this.plugin.saveSettings();
+        const saveValue = async () => {
+          const parsed = Number(text.getValue());
+          if (!Number.isFinite(parsed)) {
             text.setValue(String(this.plugin.settings[key]));
-          });
+            return;
+          }
+
+          const fallback = Number(DEFAULT_SETTINGS[key]);
+          this.plugin.settings[key] = clampInteger(parsed, fallback, min, max);
+          await this.plugin.saveSettings();
+          text.setValue(String(this.plugin.settings[key]));
+        };
+
+        text.setValue(String(this.plugin.settings[key]));
         text.inputEl.setAttr('type', 'number');
         text.inputEl.setAttr('min', String(min));
         text.inputEl.setAttr('max', String(max));
         text.inputEl.setAttr('step', '1');
+        text.inputEl.addClass('streamradio-number-input');
+        text.inputEl.addEventListener('change', () => {
+          void saveValue();
+        });
+        text.inputEl.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            text.inputEl.blur();
+            void saveValue();
+          }
+        });
       });
   }
 
@@ -954,6 +990,35 @@ class StreamRadioPlayerView extends ItemView {
     this.render();
   }
 
+  renderPomodoroOnly(): void {
+    const container = this.containerEl.children[1] as HTMLElement;
+    container.querySelector('.streamradio-pomodoro')?.remove();
+    this.renderPomodoro(container);
+  }
+
+  updatePomodoroDisplay(): void {
+    const container = this.containerEl.children[1] as HTMLElement;
+    const wrapper = container.querySelector<HTMLElement>('.streamradio-pomodoro');
+    if (!wrapper) {
+      this.renderPomodoroOnly();
+      return;
+    }
+
+    const session = this.plugin.getPomodoroSession();
+    if (wrapper.dataset.phase !== session.phase) {
+      this.renderPomodoroOnly();
+      return;
+    }
+
+    this.applyPomodoroColors(wrapper, session.phase);
+    this.updatePomodoroRing(wrapper, session);
+
+    const timeEl = wrapper.querySelector<HTMLElement>('.streamradio-pomodoro-time');
+    if (timeEl) {
+      timeEl.setText(formatPomodoroTime(session.remainingSeconds));
+    }
+  }
+
   render(): void {
     const container = this.containerEl.children[1] as HTMLElement;
     container.empty();
@@ -1070,17 +1135,10 @@ class StreamRadioPlayerView extends ItemView {
     }
 
     const session = this.plugin.getPomodoroSession();
-    const timerColor = this.getPomodoroTimerColor(session.phase);
-    const labelColor = this.getPomodoroLabelColor(session.phase);
-    const progress = session.durationSeconds > 0 ? Math.max(0, Math.min(1, session.remainingSeconds / session.durationSeconds)) : 0;
-    const elapsedRatio = 1 - progress;
-    const pointAngle = (-90 - elapsedRatio * 360) * Math.PI / 180;
-    const pointX = 60 + 50 * Math.cos(pointAngle);
-    const pointY = 60 + 50 * Math.sin(pointAngle);
 
     const wrapper = container.createDiv({ cls: 'streamradio-pomodoro' });
-    wrapper.style.setProperty('--streamradio-pomodoro-color', timerColor);
-    wrapper.style.setProperty('--streamradio-pomodoro-label-color', labelColor);
+    wrapper.dataset.phase = session.phase;
+    this.applyPomodoroColors(wrapper, session.phase);
 
     const dial = wrapper.createDiv({ cls: 'streamradio-pomodoro-dial' });
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -1100,12 +1158,9 @@ class StreamRadioPlayerView extends ItemView {
     remainingCircle.setAttribute('cy', '60');
     remainingCircle.setAttribute('r', '50');
     remainingCircle.setAttribute('pathLength', '100');
-    remainingCircle.setAttribute('stroke-dasharray', `${progress * 100} 100`);
 
     const point = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
     point.setAttribute('class', 'streamradio-pomodoro-ring-point');
-    point.setAttribute('cx', String(pointX));
-    point.setAttribute('cy', String(pointY));
     point.setAttribute('r', '3.5');
 
     svg.appendChild(elapsedCircle);
@@ -1118,6 +1173,24 @@ class StreamRadioPlayerView extends ItemView {
     content.createDiv({ cls: 'streamradio-pomodoro-time', text: formatPomodoroTime(session.remainingSeconds) });
     this.renderPomodoroDots(content, session);
     this.renderPomodoroControls(content, session);
+    this.updatePomodoroRing(wrapper, session);
+  }
+
+  private updatePomodoroRing(wrapper: HTMLElement, session: PomodoroSessionState): void {
+    const progress = session.durationSeconds > 0 ? Math.max(0, Math.min(1, session.remainingSeconds / session.durationSeconds)) : 0;
+    const pointAngle = (-90 + progress * 360) * Math.PI / 180;
+    const pointX = 60 + 50 * Math.cos(pointAngle);
+    const pointY = 60 + 50 * Math.sin(pointAngle);
+    const remainingCircle = wrapper.querySelector<SVGCircleElement>('.streamradio-pomodoro-ring-remaining');
+    const point = wrapper.querySelector<SVGCircleElement>('.streamradio-pomodoro-ring-point');
+
+    if (remainingCircle) {
+      remainingCircle.setAttribute('stroke-dasharray', `${progress * 100} 100`);
+    }
+    if (point) {
+      point.setAttribute('cx', String(pointX));
+      point.setAttribute('cy', String(pointY));
+    }
   }
 
   private renderPomodoroDots(parent: HTMLElement, session: PomodoroSessionState): void {
@@ -1170,7 +1243,13 @@ class StreamRadioPlayerView extends ItemView {
     });
   }
 
-  private getPomodoroTimerColor(phase: PomodoroPhase): string {
+  private applyPomodoroColors(wrapper: HTMLElement, phase: PomodoroPhase): void {
+    wrapper.style.setProperty('--streamradio-pomodoro-ring-color', this.getPomodoroRingColor(phase));
+    wrapper.style.setProperty('--streamradio-pomodoro-label-color', this.getPomodoroLabelColor(phase));
+    wrapper.style.setProperty('--streamradio-pomodoro-time-color', this.getPomodoroTimeColor(phase));
+  }
+
+  private getPomodoroRingColor(phase: PomodoroPhase): string {
     if (phase === 'long-break') {
       return this.plugin.settings.pomodoroLongBreakColor;
     }
@@ -1179,7 +1258,19 @@ class StreamRadioPlayerView extends ItemView {
       return this.plugin.settings.pomodoroShortBreakColor;
     }
 
-    return this.plugin.settings.pomodoroTimerColor || 'var(--text-normal)';
+    return this.plugin.settings.pomodoroTimerColor || 'var(--interactive-accent)';
+  }
+
+  private getPomodoroTimeColor(phase: PomodoroPhase): string {
+    if (phase === 'long-break') {
+      return this.plugin.settings.pomodoroLongBreakColor;
+    }
+
+    if (phase === 'short-break') {
+      return this.plugin.settings.pomodoroShortBreakColor;
+    }
+
+    return 'var(--interactive-accent)';
   }
 
   private getPomodoroLabelColor(phase: PomodoroPhase): string {

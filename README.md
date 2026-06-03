@@ -6,6 +6,7 @@
 
 StreamRadio is an Obsidian plugin for listening to web radio stations from radio-browser.info, searching and saving favorites, and which lives in the right sidebar.
 As an additional option, it also provides a highly customizable and appealing Pomodoro timer for working focused on your task, accompanied by the tunes you favor.
+
 ![Radio and Pomodoro|center](./assets/Radio_and_Pomodoro.png)
 
 ## Features
@@ -45,8 +46,11 @@ The settings tab contains:
 - A button for opening the station search modal.
 - The saved favorites list.
 - A Pomodoro section for enabling the timer, setting focus and break durations, choosing focus, short-break, and long-break colors, selecting the number of intervals, and configuring when long breaks occur.
+
 ![Radio settings](./assets/Radio_settings_pompeek.png)
+
 ![Pomodoro settings](./assets/Pomodoro_settings.png)
+
 ![Timer](./assets/Sleep_timer.png)
 
 The search modal shows 20 results per page and displays the current page with the total page count. Additional results can be reached with previous and next arrow buttons. Every result row shows station logo, station name, codec, bitrate, a favorite checkbox, and a preview play button.

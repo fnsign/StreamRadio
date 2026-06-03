@@ -1,5 +1,18 @@
 # StreamRadio Release Notes
 
+## Unreleased
+
+### Added
+
+- Added an optional Pomodoro timer below the radio player.
+- Added Pomodoro settings for focus duration, interval count, short break duration, long break duration, long-break cadence, and focus/break colors.
+- Added Pomodoro interval markers, a countdown ring, phase labels, and controls for restart, start/pause, skip, and reset.
+- Added Pomodoro completion and break-ending audio cues.
+
+### Changed
+
+- The default Pomodoro focus color is initialized from Obsidian's Appearance > Accent color.
+
 ## Version 1.0.1
 
 ### Added

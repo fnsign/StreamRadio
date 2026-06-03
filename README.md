@@ -16,6 +16,8 @@ StreamRadio is an Obsidian plugin for searching web radio stations from radio-br
 - Adjust playback volume with a slider in the player.
 - Select a favorite station from a modal.
 - Start a sleep timer with 5, 10, 15, 30, 45, 60, 120 minutes, or a custom minute value.
+- Run Pomodoro focus sessions with short and long breaks while listening to streams.
+- Customize Pomodoro durations, interval count, long-break cadence, and focus/break colors.
 
 ## Player
 
@@ -30,6 +32,7 @@ The player shows:
 - Playback controls
 - Volume slider
 - Sleep timer status
+- Pomodoro timer with interval markers, focus/break labels, countdown ring, and start, pause, restart, skip, and reset controls
 
 
 ## Settings
@@ -40,6 +43,7 @@ The settings tab contains:
 - A toggle for station logos in the player.
 - A button for opening the station search modal.
 - The saved favorites list.
+- A Pomodoro section for enabling the timer, setting focus and break durations, choosing focus, short-break, and long-break colors, selecting the number of intervals, and configuring when long breaks occur.
 
 The search modal shows 20 results per page and displays the current page with the total page count. Additional results can be reached with previous and next arrow buttons. Every result row shows station logo, station name, format, bitrate, a favorite checkbox, and a preview play button.
 
@@ -64,6 +68,7 @@ StreamRadio follows the Obsidian plugin guidelines:
 - It uses Obsidian DOM helper methods instead of HTML string injection.
 - It avoids `innerHTML`, `outerHTML`, and `insertAdjacentHTML`.
 - It uses CSS classes and Obsidian CSS variables instead of hardcoded inline styling.
+- It uses the Obsidian accent color variables for the default Pomodoro focus color.
 - It does not set default hotkeys.
 - It cleans up audio playback and timers on unload.
 

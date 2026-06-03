@@ -9,8 +9,7 @@ StreamRadio is an Obsidian plugin for searching web radio stations from radio-br
 ## Features
 
 - Search stations by name, country, language, and tag through the radio-browser.info API.
-- Preview stations directly in the search dialog before saving them.
-- Save up to 16 favorite stations.
+- Preview stations directly in the search dialog before saving them in your favorites list.
 - Reorder favorites with drag and drop in the settings tab.
 - Show or hide station logos in the player.
 - Start, pause, skip to the previous station, and skip to the next favorite station from the right sidebar.

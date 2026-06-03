@@ -236,6 +236,16 @@
   margin-bottom: var(--size-4-3);
 }
 
+.streamradio-save-button {
+  color: var(--text-on-accent);
+  background-color: var(--background-modifier-error);
+}
+
+.streamradio-save-button:hover {
+  color: var(--text-on-accent);
+  background-color: var(--background-modifier-error-hover);
+}
+
 .streamradio-results {
   max-height: min(52vh, 520px);
   overflow: auto;

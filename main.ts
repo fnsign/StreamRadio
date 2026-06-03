@@ -717,11 +717,20 @@ class StationSearchModal extends Modal {
     this.contentEl.addClass('streamradio-search-modal');
 
     const searchRow = this.contentEl.createDiv({ cls: 'streamradio-search-row' });
-    new TextComponent(searchRow)
+    const nameSearch = new TextComponent(searchRow)
       .setPlaceholder('Station name')
       .onChange((value) => {
         this.filters.name = value;
       });
+    nameSearch.inputEl.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter') {
+        return;
+      }
+
+      event.preventDefault();
+      this.page = 0;
+      void this.search();
+    });
 
     const filterRow = this.contentEl.createDiv({ cls: 'streamradio-filter-row' });
     this.countryDropdown = new DropdownComponent(filterRow).addOption('', 'Any country');
@@ -748,11 +757,12 @@ class StationSearchModal extends Modal {
         void this.search();
       });
 
-    new ButtonComponent(actionRow)
+    const saveButton = new ButtonComponent(actionRow)
       .setButtonText('Save')
       .onClick(() => {
         void this.saveSelected();
       });
+    saveButton.buttonEl.addClass('streamradio-save-button');
 
     this.resultsEl = this.contentEl.createDiv({ cls: 'streamradio-results' });
     this.paginationEl = this.contentEl.createDiv({ cls: 'streamradio-pagination' });

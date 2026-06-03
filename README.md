@@ -4,18 +4,19 @@
 
 # StreamRadio
 
-StreamRadio is an Obsidian plugin for searching web radio stations from radio-browser.info, saving favorites, and listening from the right sidebar.
+StreamRadio is an Obsidian plugin for listening to web radio stations from radio-browser.info, searching and saving favorites, and which lives in the right sidebar.
+As an additional option, it also provides a highly customizable and appealing Pomodoro timer for working focused on your task, accompanied by the tunes you favor.
+![Radio and Pomodoro|center](./assets/Radio_and_Pomodoro.png)
 
 ## Features
 
 - Search stations by name, country, language, and tag through the radio-browser.info API.
 - Preview stations directly in the search dialog before saving them in your favorites list.
-- Reorder favorites with drag and drop in the settings tab.
+- Re-order favorites with drag and drop in the settings tab.
 - Show or hide station logos in the player.
-- Start, pause, skip to the previous station, and skip to the next favorite station from the right sidebar.
+- Start, pause, skip to the previous or next favorit station.
 - Adjust playback volume with a slider in the player.
-- Select a favorite station from a modal.
-- Start a sleep timer with 5, 10, 15, 30, 45, 60, 120 minutes, or a custom minute value.
+- Start a timer with 5, 10, 15, 30, 45, 60, 120 minutes, or a custom minute value.
 - Run Pomodoro focus sessions with short and long breaks while listening to streams.
 - Customize Pomodoro durations, interval count, long-break cadence, and focus/break colors.
 
@@ -28,11 +29,11 @@ The player shows:
 - Station logo, when enabled and available
 - Station name
 - Country and language information
-- Format and bitrate
+- Codec and bitrate
 - Playback controls
 - Volume slider
-- Sleep timer status
-- Pomodoro timer with interval markers, focus/break labels, countdown ring, and start, pause, restart, skip, and reset controls
+- Timer status
+- Optinal: Pomodoro timer with interval markers, focus/break labels, countdown ring, and start, pause, restart, skip, and reset controls
 
 
 ## Settings
@@ -44,8 +45,11 @@ The settings tab contains:
 - A button for opening the station search modal.
 - The saved favorites list.
 - A Pomodoro section for enabling the timer, setting focus and break durations, choosing focus, short-break, and long-break colors, selecting the number of intervals, and configuring when long breaks occur.
+![Radio settings](./assets/Radio_settings_pompeek.png)
+![Pomodoro settings](./assets/Pomodoro_settings.png)
+![Timer](./assets/Sleep_timer.png)
 
-The search modal shows 20 results per page and displays the current page with the total page count. Additional results can be reached with previous and next arrow buttons. Every result row shows station logo, station name, format, bitrate, a favorite checkbox, and a preview play button.
+The search modal shows 20 results per page and displays the current page with the total page count. Additional results can be reached with previous and next arrow buttons. Every result row shows station logo, station name, codec, bitrate, a favorite checkbox, and a preview play button.
 
 ## radio-browser.info
 
@@ -91,22 +95,6 @@ StreamRadio follows the Obsidian plugin guidelines:
 - Browser audio playback does not expose ICY stream metadata in a reliable cross-platform way. StreamRadio does not display live artist or song metadata.
 - Drag and drop in the favorites list uses standard browser drag events because Obsidian does not provide a dedicated reorder-list component.
 - Notebook Navigator compatibility does not require a special integration because StreamRadio does not add file explorer or note context menu actions.
-
-## Build
-
-Install dependencies:
-
-```bash
-npm install
-```
-
-Run a production build:
-
-```bash
-npm run build
-```
-
-The build bundles `RELEASENOTES.md` into `main.js` through the esbuild text loader. `RELEASENOTES.md` is build input, not a required runtime plugin file.
 
 ## License
 

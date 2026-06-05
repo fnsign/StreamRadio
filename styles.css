@@ -193,10 +193,10 @@
   width: fit-content;
   max-width: 100%;
   margin: var(--size-4-2) auto 0;
-  padding: 3px var(--size-4-3);
+  padding: 2px var(--size-4-2);
   color: var(--text-muted);
-  font-size: var(--font-ui-smaller);
-  line-height: var(--line-height-tight);
+  font-size: 0.72rem;
+  line-height: 1.25;
   border: 1px solid var(--background-modifier-border);
   border-radius: 999px;
   background: var(--background-secondary);
@@ -223,8 +223,10 @@
   max-height: 270px;
   opacity: 1;
   overflow: hidden;
+  transform: translateY(0) scale(1);
+  transform-origin: top center;
   visibility: visible;
-  transition: opacity 220ms ease, max-height 220ms ease, margin-top 220ms ease, visibility 0s linear 0s;
+  transition: opacity 420ms ease, transform 420ms ease, max-height 460ms ease, margin-top 460ms ease, visibility 0s linear 0s;
 }
 
 .streamradio-pomodoro.is-hidden {
@@ -232,8 +234,9 @@
   margin-top: 0;
   opacity: 0;
   pointer-events: none;
+  transform: translateY(-6px) scale(0.985);
   visibility: hidden;
-  transition: opacity 220ms ease, max-height 220ms ease, margin-top 220ms ease, visibility 0s linear 220ms;
+  transition: opacity 420ms ease, transform 420ms ease, max-height 460ms ease, margin-top 460ms ease, visibility 0s linear 460ms;
 }
 
 .streamradio-pomodoro-dial {

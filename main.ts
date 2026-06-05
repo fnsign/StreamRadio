@@ -115,7 +115,7 @@ const DEFAULT_SETTINGS: StreamRadioSettings = {
   volume: 1,
   pomodoroEnabled: true,
   pomodoroReducedDistractionEnabled: true,
-  pomodoroDimFactor: 20,
+  pomodoroDimFactor: 10,
   pomodoroFocusMinutes: 25,
   pomodoroTimerColor: '',
   pomodoroIntervals: 4,

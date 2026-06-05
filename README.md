@@ -19,7 +19,8 @@ As an additional option, it also provides a highly customizable and appealing Po
 - Adjust playback volume with a slider in the player.
 - Start a timer with 5, 10, 15, 30, 45, 60, 120 minutes, or a custom minute value.
 - Run Pomodoro focus sessions with short and long breaks while listening to streams.
-- Customize Pomodoro durations, interval count, long-break cadence, and focus/break colors.
+- Customize Pomodoro durations, interval count, long-break cadence, focus/break colors, and reduced-distraction dimming.
+- Hide and show the Pomodoro timer display while the session continues running in the background.
 
 ## Player
 
@@ -34,7 +35,7 @@ The player shows:
 - Playback controls
 - Volume slider
 - Timer status
-- Optinal: Pomodoro timer with interval markers, focus/break labels, countdown ring, and start, pause, restart, skip, and reset controls
+- Optinal: Pomodoro timer with interval markers, focus/break labels, countdown ring, start, pause, restart, skip, reset, and hide/show controls
 
 ![Short break](./assets/Short_break.png)
 
@@ -48,7 +49,7 @@ The settings tab contains:
 - A toggle for station logos in the player.
 - A button for opening the station search modal.
 - The saved favorites list.
-- A Pomodoro section for enabling the timer, setting focus and break durations, choosing focus, short-break, and long-break colors, selecting the number of intervals, and configuring when long breaks occur.
+- A Pomodoro section for enabling the timer, setting focus and break durations, choosing focus, short-break, and long-break colors, configuring reduced-distraction dimming, selecting the number of intervals, and configuring when long breaks occur.
 
 ![Radio settings](./assets/Radio_settings_pompeek.png)
 

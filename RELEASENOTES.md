@@ -8,6 +8,7 @@
 - Added Pomodoro settings for focus duration, interval count, short break duration, long break duration, long-break cadence, and focus/break colors.
 - Added Pomodoro interval markers, a countdown ring, phase labels, and controls for restart, start/pause, skip, and reset.
 - Added Pomodoro completion and break-ending audio cues.
+- Added reduced distraction mode for dimming focus intervals and a hide/show control for the Pomodoro display.
 
 ### Changed
 

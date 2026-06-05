@@ -188,6 +188,26 @@
   width: min(180px, 70%);
 }
 
+.streamradio-pomodoro-visibility-toggle {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  margin: var(--size-4-2) auto 0;
+  padding: 3px var(--size-4-3);
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  line-height: var(--line-height-tight);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 999px;
+  background: var(--background-secondary);
+  box-shadow: none;
+}
+
+.streamradio-pomodoro-visibility-toggle:hover {
+  color: var(--text-normal);
+  background: var(--background-modifier-hover);
+}
+
 .streamradio-timer-label {
   margin-top: var(--size-4-5);
   text-align: center;
@@ -196,15 +216,32 @@
 .streamradio-pomodoro {
   --streamradio-pomodoro-ring-color: var(--interactive-accent);
   --streamradio-pomodoro-label-color: var(--interactive-accent);
+  --streamradio-pomodoro-opacity: 1;
   display: flex;
   justify-content: center;
   margin-top: var(--size-4-6);
+  max-height: 270px;
+  opacity: 1;
+  overflow: hidden;
+  visibility: visible;
+  transition: opacity 220ms ease, max-height 220ms ease, margin-top 220ms ease, visibility 0s linear 0s;
+}
+
+.streamradio-pomodoro.is-hidden {
+  max-height: 0;
+  margin-top: 0;
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+  transition: opacity 220ms ease, max-height 220ms ease, margin-top 220ms ease, visibility 0s linear 220ms;
 }
 
 .streamradio-pomodoro-dial {
   position: relative;
   width: min(100%, 244px);
   aspect-ratio: 1;
+  opacity: var(--streamradio-pomodoro-opacity);
+  transition: opacity 240ms ease;
 }
 
 .streamradio-pomodoro-ring {

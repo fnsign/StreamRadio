@@ -292,6 +292,7 @@ export default class StreamRadioPlugin extends Plugin {
   private pomodoroBeepTimeoutIds: number[] = [];
   private beepAudioContext: AudioContext | null = null;
   private pomodoroHidden = false;
+  private pomodoroDimOverride: boolean | null = null;
 
   async onload(): Promise<void> {
     await this.loadSettings();
@@ -420,14 +421,30 @@ export default class StreamRadioPlugin extends Plugin {
     }
   }
 
-  async togglePomodoroReducedDistraction(): Promise<void> {
-    this.settings.pomodoroReducedDistractionEnabled = !this.settings.pomodoroReducedDistractionEnabled;
-    await this.saveData(this.settings);
+  getIsPomodoroDisplayDimmed(session = this.getPomodoroSession()): boolean {
+    if (this.pomodoroDimOverride !== null) {
+      return this.pomodoroDimOverride;
+    }
+
+    return this.shouldAutoDimPomodoro(session);
+  }
+
+  togglePomodoroDisplayDim(): void {
+    this.pomodoroDimOverride = !this.getIsPomodoroDisplayDimmed();
     for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_STREAMRADIO)) {
       if (leaf.view instanceof StreamRadioPlayerView) {
         leaf.view.updatePomodoroToolbar();
       }
     }
+  }
+
+  private shouldAutoDimPomodoro(session: PomodoroSessionState): boolean {
+    if (!this.settings.pomodoroReducedDistractionEnabled || session.phase !== 'focus' || !session.isRunning) {
+      return false;
+    }
+
+    const elapsedSeconds = session.durationSeconds - session.remainingSeconds;
+    return elapsedSeconds >= POMODORO_DIM_DELAY_SECONDS && session.remainingSeconds > POMODORO_RESTORE_BEFORE_END_SECONDS;
   }
 
   async activatePlayerView(): Promise<void> {
@@ -713,7 +730,7 @@ export default class StreamRadioPlugin extends Plugin {
       return;
     }
 
-    if (session.phase !== 'focus' && session.remainingSeconds <= 3 && session.remainingSeconds > 0 && this.pomodoroBreakWarningSecond !== session.remainingSeconds) {
+    if (session.remainingSeconds <= 3 && session.remainingSeconds > 0 && this.pomodoroBreakWarningSecond !== session.remainingSeconds) {
       this.pomodoroBreakWarningSecond = session.remainingSeconds;
       this.playBeep();
     }
@@ -1174,6 +1191,8 @@ class StreamRadioPlayerView extends ItemView {
     if (timeEl) {
       timeEl.setText(formatPomodoroTime(session.remainingSeconds));
     }
+
+    this.updatePomodoroToolStates(container, session);
   }
 
   updatePomodoroToolbar(): void {
@@ -1184,23 +1203,7 @@ class StreamRadioPlayerView extends ItemView {
       this.applyPomodoroVisibility(wrapper, session);
     }
 
-    const isHidden = this.plugin.getIsPomodoroHidden();
-    const visibilityButton = container.querySelector<HTMLButtonElement>('.streamradio-pomodoro-visibility-button');
-    if (visibilityButton) {
-      visibilityButton.classList.toggle('is-active', isHidden);
-      visibilityButton.setAttr('aria-pressed', String(isHidden));
-      visibilityButton.setAttr('aria-label', isHidden ? 'Show Pomodoro' : 'Hide Pomodoro');
-      visibilityButton.setAttr('title', isHidden ? 'Show Pomodoro' : 'Hide Pomodoro');
-    }
-
-    const isDimEnabled = this.plugin.settings.pomodoroReducedDistractionEnabled;
-    const dimButton = container.querySelector<HTMLButtonElement>('.streamradio-pomodoro-dim-button');
-    if (dimButton) {
-      dimButton.classList.toggle('is-active', isDimEnabled);
-      dimButton.setAttr('aria-pressed', String(isDimEnabled));
-      dimButton.setAttr('aria-label', isDimEnabled ? 'Disable reduced distraction mode' : 'Enable reduced distraction mode');
-      dimButton.setAttr('title', isDimEnabled ? 'Disable reduced distraction mode' : 'Enable reduced distraction mode');
-    }
+    this.updatePomodoroToolStates(container, session);
   }
 
   render(): void {
@@ -1304,8 +1307,6 @@ class StreamRadioPlayerView extends ItemView {
       return;
     }
 
-    container.createDiv({ cls: 'streamradio-player-pomodoro-divider', attr: { 'aria-hidden': 'true' } });
-
     const actions = container.createDiv({ cls: 'streamradio-pomodoro-tools' });
     const visibilityButton = actions.createEl('button', {
       cls: 'clickable-icon streamradio-pomodoro-tool-button streamradio-pomodoro-visibility-button',
@@ -1325,17 +1326,37 @@ class StreamRadioPlayerView extends ItemView {
       cls: 'clickable-icon streamradio-pomodoro-tool-button streamradio-pomodoro-dim-button',
       attr: {
         type: 'button',
-        'aria-label': 'Disable reduced distraction mode',
-        'aria-pressed': 'true',
-        title: 'Disable reduced distraction mode',
+        'aria-label': 'Dim Pomodoro display',
+        'aria-pressed': 'false',
+        title: 'Dim Pomodoro display',
       },
     });
     setIcon(dimButton, 'sun-dim');
     dimButton.addEventListener('click', () => {
-      void this.plugin.togglePomodoroReducedDistraction();
+      this.plugin.togglePomodoroDisplayDim();
     });
 
     this.updatePomodoroToolbar();
+  }
+
+  private updatePomodoroToolStates(container: HTMLElement, session: PomodoroSessionState): void {
+    const isHidden = this.plugin.getIsPomodoroHidden();
+    const visibilityButton = container.querySelector<HTMLButtonElement>('.streamradio-pomodoro-visibility-button');
+    if (visibilityButton) {
+      visibilityButton.classList.toggle('is-active', isHidden);
+      visibilityButton.setAttr('aria-pressed', String(isHidden));
+      visibilityButton.setAttr('aria-label', isHidden ? 'Show Pomodoro' : 'Hide Pomodoro');
+      visibilityButton.setAttr('title', isHidden ? 'Show Pomodoro' : 'Hide Pomodoro');
+    }
+
+    const isDimmed = this.plugin.getIsPomodoroDisplayDimmed(session);
+    const dimButton = container.querySelector<HTMLButtonElement>('.streamradio-pomodoro-dim-button');
+    if (dimButton) {
+      dimButton.classList.toggle('is-active', isDimmed);
+      dimButton.setAttr('aria-pressed', String(isDimmed));
+      dimButton.setAttr('aria-label', isDimmed ? 'Show Pomodoro at normal brightness' : 'Dim Pomodoro display');
+      dimButton.setAttr('title', isDimmed ? 'Show Pomodoro at normal brightness' : 'Dim Pomodoro display');
+    }
   }
 
   private createStationLogo(parent: HTMLElement, station: FavoriteStation): void {
@@ -1477,19 +1498,10 @@ class StreamRadioPlayerView extends ItemView {
     wrapper.classList.toggle('is-hidden', isHidden);
     wrapper.setAttr('aria-hidden', String(isHidden));
 
-    const opacity = this.shouldDimPomodoro(session)
+    const opacity = this.plugin.getIsPomodoroDisplayDimmed(session)
       ? this.plugin.settings.pomodoroDimFactor / 100
       : 1;
     wrapper.style.setProperty('--streamradio-pomodoro-opacity', String(opacity));
-  }
-
-  private shouldDimPomodoro(session: PomodoroSessionState): boolean {
-    if (!this.plugin.settings.pomodoroReducedDistractionEnabled || session.phase !== 'focus' || !session.isRunning) {
-      return false;
-    }
-
-    const elapsedSeconds = session.durationSeconds - session.remainingSeconds;
-    return elapsedSeconds >= POMODORO_DIM_DELAY_SECONDS && session.remainingSeconds > POMODORO_RESTORE_BEFORE_END_SECONDS;
   }
 
   private getPomodoroRingColor(phase: PomodoroPhase): string {

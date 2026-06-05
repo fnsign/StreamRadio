@@ -195,19 +195,12 @@
   width: min(180px, 70%);
 }
 
-.streamradio-player-pomodoro-divider {
-  width: min(112px, 42%);
-  height: 1px;
-  margin: var(--size-4-3) auto var(--size-2-3);
-  background: var(--background-modifier-border);
-}
-
 .streamradio-pomodoro-tools {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: var(--size-2-2);
-  margin-bottom: var(--size-2-3);
+  margin: var(--size-4-2) 0 var(--size-2-3);
 }
 
 .streamradio-pomodoro-tool-button {

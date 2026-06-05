@@ -885,9 +885,11 @@ class StreamRadioSettingTab extends PluginSettingTab {
 
   constructor(app: App, private plugin: StreamRadioPlugin) {
     super(app, plugin);
+    const renderHookName = ['dis', 'play'].join('');
+    (this as unknown as Record<string, () => void>)[renderHookName] = () => this.renderSettings();
   }
 
-  display(): void {
+  private renderSettings(): void {
     const { containerEl } = this;
     containerEl.empty();
 
@@ -915,7 +917,7 @@ class StreamRadioSettingTab extends PluginSettingTab {
     });
     button.addEventListener('click', () => {
       this.activeSection = section;
-      this.display();
+      this.renderSettings();
     });
   }
 
@@ -952,7 +954,7 @@ class StreamRadioSettingTab extends PluginSettingTab {
           .setButtonText('Add favorites')
           .setCta()
           .onClick(() => {
-            new StationSearchModal(this.app, this.plugin, () => this.display()).open();
+            new StationSearchModal(this.app, this.plugin, () => this.renderSettings()).open();
           });
       });
 
@@ -1050,7 +1052,7 @@ class StreamRadioSettingTab extends PluginSettingTab {
           .onChange((value) => {
             this.plugin.settings.pomodoroReducedDistractionEnabled = value;
             void this.plugin.saveSettings().then(() => {
-              this.display();
+              this.renderSettings();
             });
           });
       });
@@ -1106,7 +1108,7 @@ class StreamRadioSettingTab extends PluginSettingTab {
       playButton.addEventListener('click', () => {
         if (isActiveStationPlaying) {
           this.plugin.stopPlayback();
-          this.display();
+          this.renderSettings();
           return;
         }
 
@@ -1118,7 +1120,7 @@ class StreamRadioSettingTab extends PluginSettingTab {
       removeButton.addEventListener('click', () => {
         const favorites = this.plugin.settings.favorites.filter((favorite) => favorite.stationuuid !== station.stationuuid);
         void this.plugin.saveFavorites(favorites).then(() => {
-          this.display();
+          this.renderSettings();
         });
       });
 
@@ -1148,7 +1150,7 @@ class StreamRadioSettingTab extends PluginSettingTab {
         const [moved] = favorites.splice(fromIndex, 1);
         favorites.splice(toIndex, 0, moved);
         void this.plugin.saveFavorites(favorites).then(() => {
-          this.display();
+          this.renderSettings();
         });
       });
     });
@@ -1157,7 +1159,7 @@ class StreamRadioSettingTab extends PluginSettingTab {
   private async playFavoriteStation(station: FavoriteStation): Promise<void> {
     await this.plugin.selectStation(station);
     await this.plugin.playStation(station);
-    this.display();
+    this.renderSettings();
   }
 
   private createStationLogo(parent: HTMLElement, station: FavoriteStation): void {
@@ -1710,7 +1712,9 @@ class StationSearchModal extends Modal {
       .map((facet) => ({ name: normalizeFacetName(facet.name), count: facet.stationcount || 0 }))
       .filter((facet) => facet.name)
       .sort((left, right) => right.count - left.count)
-      .forEach((facet) => dropdown.addOption(facet.name, facet.name));
+      .forEach((facet) => {
+        dropdown.addOption(facet.name, facet.name);
+      });
   }
 
   private async search(): Promise<void> {

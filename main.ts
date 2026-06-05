@@ -23,6 +23,7 @@ const SEARCH_PAGE_SIZE = 20;
 const SEARCH_COUNT_LIMIT = 100000;
 const TIMER_REFRESH_INTERVAL_MS = 30000;
 const POMODORO_REFRESH_INTERVAL_MS = 1000;
+const POMODORO_WARNING_COUNTDOWN_SECONDS = 10;
 const POMODORO_DIM_DELAY_SECONDS = 10;
 const POMODORO_RESTORE_BEFORE_END_SECONDS = 60;
 const MAX_VISIBLE_TAGS = 6;
@@ -353,6 +354,7 @@ export default class StreamRadioPlugin extends Plugin {
     this.settings.pomodoroIntervals = clampInteger(this.settings.pomodoroIntervals, DEFAULT_SETTINGS.pomodoroIntervals, 1, 8);
     this.settings.pomodoroLongBreakEvery = clampInteger(this.settings.pomodoroLongBreakEvery, DEFAULT_SETTINGS.pomodoroLongBreakEvery, 1, 8);
     this.settings.pomodoroDimFactor = clampPercentage(this.settings.pomodoroDimFactor, DEFAULT_SETTINGS.pomodoroDimFactor);
+    this.syncPomodoroSessionWithSettings();
 
     if (!this.settings.pomodoroEnabled) {
       this.pomodoroHidden = false;
@@ -740,7 +742,7 @@ export default class StreamRadioPlugin extends Plugin {
       return;
     }
 
-    if (session.remainingSeconds <= 3 && session.remainingSeconds > 0 && this.pomodoroBreakWarningSecond !== session.remainingSeconds) {
+    if (session.remainingSeconds <= POMODORO_WARNING_COUNTDOWN_SECONDS && session.remainingSeconds > 0 && this.pomodoroBreakWarningSecond !== session.remainingSeconds) {
       this.pomodoroBreakWarningSecond = session.remainingSeconds;
       this.playBeep();
     }
@@ -815,6 +817,21 @@ export default class StreamRadioPlugin extends Plugin {
     return secondsFromMinutes(this.settings.pomodoroFocusMinutes);
   }
 
+  private syncPomodoroSessionWithSettings(): void {
+    if (!this.pomodoroSession) {
+      return;
+    }
+
+    const session = this.pomodoroSession;
+    const durationSeconds = this.getPomodoroPhaseDurationSeconds(session.phase);
+    const elapsedSeconds = Math.max(0, session.durationSeconds - session.remainingSeconds);
+    session.durationSeconds = durationSeconds;
+
+    if (session.remainingSeconds > 0) {
+      session.remainingSeconds = Math.max(0, durationSeconds - elapsedSeconds);
+    }
+  }
+
   private playPomodoroCompletionBeeps(): void {
     this.clearPomodoroBeeps();
     [0, 250, 500].forEach((delay) => {
@@ -849,7 +866,7 @@ export default class StreamRadioPlugin extends Plugin {
     oscillator.type = 'sine';
     oscillator.frequency.setValueAtTime(880, startTime);
     gain.gain.setValueAtTime(0.0001, startTime);
-    gain.gain.exponentialRampToValueAtTime(0.12, startTime + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.18, startTime + 0.01);
     gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.12);
 
     oscillator.connect(gain);

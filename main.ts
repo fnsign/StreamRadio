@@ -866,7 +866,7 @@ export default class StreamRadioPlugin extends Plugin {
     oscillator.type = 'sine';
     oscillator.frequency.setValueAtTime(880, startTime);
     gain.gain.setValueAtTime(0.0001, startTime);
-    gain.gain.exponentialRampToValueAtTime(0.18, startTime + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.25, startTime + 0.01);
     gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.12);
 
     oscillator.connect(gain);

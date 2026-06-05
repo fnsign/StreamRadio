@@ -293,6 +293,7 @@ export default class StreamRadioPlugin extends Plugin {
   private beepAudioContext: AudioContext | null = null;
   private pomodoroHidden = false;
   private pomodoroManualDimEnabled = false;
+  private pomodoroAutoDimSuppressed = false;
 
   async onload(): Promise<void> {
     await this.loadSettings();
@@ -422,20 +423,29 @@ export default class StreamRadioPlugin extends Plugin {
   }
 
   getIsPomodoroDisplayDimmed(session = this.getPomodoroSession()): boolean {
-    return this.pomodoroManualDimEnabled || this.shouldAutoDimPomodoro(session);
+    return this.pomodoroManualDimEnabled || (this.shouldAutoDimPomodoro(session) && !this.pomodoroAutoDimSuppressed);
   }
 
   togglePomodoroDisplayDim(): void {
-    this.pomodoroManualDimEnabled = !this.pomodoroManualDimEnabled;
+    const session = this.getPomodoroSession();
+    const isAutoDimmed = this.shouldAutoDimPomodoro(session);
+    const isDisplayDimmed = this.getIsPomodoroDisplayDimmed(session);
+
+    if (isDisplayDimmed) {
+      this.pomodoroManualDimEnabled = false;
+      this.pomodoroAutoDimSuppressed = isAutoDimmed;
+    } else if (isAutoDimmed) {
+      this.pomodoroAutoDimSuppressed = false;
+    } else {
+      this.pomodoroManualDimEnabled = true;
+      this.pomodoroAutoDimSuppressed = false;
+    }
+
     for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_STREAMRADIO)) {
       if (leaf.view instanceof StreamRadioPlayerView) {
         leaf.view.updatePomodoroToolbar();
       }
     }
-  }
-
-  getIsPomodoroManualDimEnabled(): boolean {
-    return this.pomodoroManualDimEnabled;
   }
 
   private shouldAutoDimPomodoro(session: PomodoroSessionState): boolean {
@@ -782,6 +792,7 @@ export default class StreamRadioPlugin extends Plugin {
 
   private createPomodoroSession(phase: PomodoroPhase, currentIntervalIndex: number, completedIntervals: number, isRunning: boolean): PomodoroSessionState {
     const durationSeconds = this.getPomodoroPhaseDurationSeconds(phase);
+    this.pomodoroAutoDimSuppressed = false;
     return {
       phase,
       currentIntervalIndex,
@@ -1350,13 +1361,12 @@ class StreamRadioPlayerView extends ItemView {
     }
 
     const isDimmed = this.plugin.getIsPomodoroDisplayDimmed(session);
-    const isManualDimEnabled = this.plugin.getIsPomodoroManualDimEnabled();
     const dimButton = container.querySelector<HTMLButtonElement>('.streamradio-pomodoro-dim-button');
     if (dimButton) {
       dimButton.classList.toggle('is-active', isDimmed);
       dimButton.setAttr('aria-pressed', String(isDimmed));
-      dimButton.setAttr('aria-label', isManualDimEnabled ? 'Disable manual Pomodoro dimming' : 'Dim Pomodoro display');
-      dimButton.setAttr('title', isManualDimEnabled ? 'Disable manual Pomodoro dimming' : 'Dim Pomodoro display');
+      dimButton.setAttr('aria-label', isDimmed ? 'Show Pomodoro at normal brightness' : 'Dim Pomodoro display');
+      dimButton.setAttr('title', isDimmed ? 'Show Pomodoro at normal brightness' : 'Dim Pomodoro display');
     }
   }
 

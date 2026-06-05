@@ -20,7 +20,9 @@ As an additional option, it also provides a highly customizable and appealing Po
 - Start a timer with 5, 10, 15, 30, 45, 60, 120 minutes, or a custom minute value.
 - Run Pomodoro focus sessions with short and long breaks while listening to streams.
 - Customize Pomodoro durations, interval count, long-break cadence, focus/break colors, and reduced-distraction dimming.
-- Hide and show the Pomodoro timer display while the session continues running in the background.
+- Hear louder Pomodoro audio cues, including a 10-second countdown at the end of focus and break phases.
+- Apply Pomodoro duration changes immediately to the current timer without resetting it manually.
+- A reduced distraction mode for the Pomodoro display, allowing users to dim the display during focus intervals and toggle its visibility. 
 
 ## Player
 
@@ -35,7 +37,7 @@ The player shows:
 - Playback controls
 - Volume slider
 - Timer status
-- Optinal: Pomodoro timer with interval markers, focus/break labels, countdown ring, start, pause, restart, skip, reset, and hide/show controls
+- Optional: Pomodoro timer with interval markers, focus/break labels, countdown ring, louder 10-second audio countdowns, start, pause, restart, skip, reset, and hide/show controls
 
 ![Short break](./assets/Short_break.png)
 
@@ -81,6 +83,7 @@ StreamRadio follows the Obsidian plugin guidelines:
 - It avoids `innerHTML`, `outerHTML`, and `insertAdjacentHTML`.
 - It uses CSS classes and Obsidian CSS variables instead of hardcoded inline styling.
 - It uses the Obsidian accent color variables for the default Pomodoro focus color.
+- It uses popout-compatible document access where needed.
 - It does not set default hotkeys.
 - It cleans up audio playback and timers on unload.
 
@@ -102,7 +105,6 @@ StreamRadio follows the Obsidian plugin guidelines:
 - Stream availability depends on the station data provided by radio-browser.info and the radio station itself.
 - Browser audio playback does not expose ICY stream metadata in a reliable cross-platform way. StreamRadio does not display live artist or song metadata.
 - Drag and drop in the favorites list uses standard browser drag events because Obsidian does not provide a dedicated reorder-list component.
-- Notebook Navigator compatibility does not require a special integration because StreamRadio does not add file explorer or note context menu actions.
 
 ## License
 

@@ -1,5 +1,24 @@
 # StreamRadio Release Notes
 
+## Version 1.2.0
+
+### Added
+
+- Introduce a reduced distraction mode for the Pomodoro display, allowing users to dim the display during focus intervals and toggle its visibility. 
+- Improve UI responsiveness and transitions.
+- Update styles for better layout and accessibility.
+
+### Changed
+
+- Increased Pomodoro beep volume for better audibility.
+- Pomodoro duration changes now apply immediately to the current timer without requiring a manual reset.
+- Improved Obsidian plugin review compatibility while keeping support for the current public Obsidian release line.
+
+### Fixed
+
+- Fixed Pomodoro timer state staying on the old duration after changing focus or break duration settings.
+- Replaced review-flagged API and callback patterns with compatibility-safe alternatives.
+
 ## Version 1.1.0
 
 ### Added

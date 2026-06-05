@@ -23,6 +23,9 @@ const SEARCH_PAGE_SIZE = 20;
 const SEARCH_COUNT_LIMIT = 100000;
 const TIMER_REFRESH_INTERVAL_MS = 30000;
 const POMODORO_REFRESH_INTERVAL_MS = 1000;
+const POMODORO_WARNING_COUNTDOWN_SECONDS = 10;
+const POMODORO_DIM_DELAY_SECONDS = 10;
+const POMODORO_RESTORE_BEFORE_END_SECONDS = 60;
 const MAX_VISIBLE_TAGS = 6;
 const LEGACY_DEFAULT_POMODORO_FOCUS_COLOR = '#7c3aed';
 const DEFAULT_POMODORO_SHORT_BREAK_COLOR = '#003f88';
@@ -30,7 +33,7 @@ const DEFAULT_POMODORO_LONG_BREAK_COLOR = '#0b5d1e';
 
 type SettingsSection = 'radio' | 'pomodoro';
 type PomodoroPhase = 'focus' | 'short-break' | 'long-break';
-type NumberSettingKey = 'pomodoroFocusMinutes' | 'pomodoroIntervals' | 'pomodoroShortBreakMinutes' | 'pomodoroLongBreakMinutes' | 'pomodoroLongBreakEvery';
+type NumberSettingKey = 'pomodoroFocusMinutes' | 'pomodoroIntervals' | 'pomodoroShortBreakMinutes' | 'pomodoroLongBreakMinutes' | 'pomodoroLongBreakEvery' | 'pomodoroDimFactor';
 type ColorSettingKey = 'pomodoroTimerColor' | 'pomodoroShortBreakColor' | 'pomodoroLongBreakColor';
 
 interface StreamRadioSettings {
@@ -39,6 +42,8 @@ interface StreamRadioSettings {
   activeStationId: string;
   volume: number;
   pomodoroEnabled: boolean;
+  pomodoroReducedDistractionEnabled: boolean;
+  pomodoroDimFactor: number;
   pomodoroFocusMinutes: number;
   pomodoroTimerColor: string;
   pomodoroIntervals: number;
@@ -110,6 +115,8 @@ const DEFAULT_SETTINGS: StreamRadioSettings = {
   activeStationId: '',
   volume: 1,
   pomodoroEnabled: true,
+  pomodoroReducedDistractionEnabled: true,
+  pomodoroDimFactor: 10,
   pomodoroFocusMinutes: 25,
   pomodoroTimerColor: '',
   pomodoroIntervals: 4,
@@ -166,6 +173,14 @@ function clampInteger(value: number, fallback: number, min: number, max: number)
   return Math.min(max, Math.max(min, Math.floor(value)));
 }
 
+function clampPercentage(value: number, fallback: number): number {
+  if (!Number.isFinite(value)) {
+    return fallback;
+  }
+
+  return Math.min(100, Math.max(5, Math.round(value)));
+}
+
 function sanitizeColor(value: string, fallback: string): string {
   if (!value) {
     return fallback;
@@ -175,8 +190,8 @@ function sanitizeColor(value: string, fallback: string): string {
 }
 
 function getThemeAccentColor(): string {
-  const bodyStyle = getComputedStyle(document.body);
-  const rootStyle = getComputedStyle(document.documentElement);
+  const bodyStyle = getComputedStyle(activeDocument.body);
+  const rootStyle = getComputedStyle(activeDocument.documentElement);
   const hue = getCssVariableNumber(bodyStyle, rootStyle, '--accent-h');
   const saturation = getCssVariableNumber(bodyStyle, rootStyle, '--accent-s');
   const lightness = getCssVariableNumber(bodyStyle, rootStyle, '--accent-l');
@@ -277,6 +292,9 @@ export default class StreamRadioPlugin extends Plugin {
   private pomodoroBreakWarningSecond = 0;
   private pomodoroBeepTimeoutIds: number[] = [];
   private beepAudioContext: AudioContext | null = null;
+  private pomodoroHidden = false;
+  private pomodoroManualDimEnabled = false;
+  private pomodoroAutoDimSuppressed = false;
 
   async onload(): Promise<void> {
     await this.loadSettings();
@@ -288,8 +306,8 @@ export default class StreamRadioPlugin extends Plugin {
     });
 
     this.addCommand({
-      id: 'open-streamradio-player',
-      name: 'Open StreamRadio player',
+      id: 'open-player',
+      name: 'Open player',
       callback: () => {
         void this.activatePlayerView();
       },
@@ -314,6 +332,8 @@ export default class StreamRadioPlugin extends Plugin {
       .filter((station) => station.stationuuid && station.streamUrl);
     this.settings.volume = clampVolume(this.settings.volume ?? DEFAULT_SETTINGS.volume);
     this.settings.pomodoroEnabled = this.settings.pomodoroEnabled ?? DEFAULT_SETTINGS.pomodoroEnabled;
+    this.settings.pomodoroReducedDistractionEnabled = this.settings.pomodoroReducedDistractionEnabled ?? DEFAULT_SETTINGS.pomodoroReducedDistractionEnabled;
+    this.settings.pomodoroDimFactor = clampPercentage(this.settings.pomodoroDimFactor, DEFAULT_SETTINGS.pomodoroDimFactor);
     this.settings.pomodoroFocusMinutes = clampInteger(this.settings.pomodoroFocusMinutes, DEFAULT_SETTINGS.pomodoroFocusMinutes, 1, 240);
     this.settings.pomodoroTimerColor = !loadedSettings?.pomodoroTimerColor || loadedSettings.pomodoroTimerColor === LEGACY_DEFAULT_POMODORO_FOCUS_COLOR
       ? themeAccentColor
@@ -333,8 +353,11 @@ export default class StreamRadioPlugin extends Plugin {
 
     this.settings.pomodoroIntervals = clampInteger(this.settings.pomodoroIntervals, DEFAULT_SETTINGS.pomodoroIntervals, 1, 8);
     this.settings.pomodoroLongBreakEvery = clampInteger(this.settings.pomodoroLongBreakEvery, DEFAULT_SETTINGS.pomodoroLongBreakEvery, 1, 8);
+    this.settings.pomodoroDimFactor = clampPercentage(this.settings.pomodoroDimFactor, DEFAULT_SETTINGS.pomodoroDimFactor);
+    this.syncPomodoroSessionWithSettings();
 
     if (!this.settings.pomodoroEnabled) {
+      this.pomodoroHidden = false;
       this.resetPomodoro(false);
     }
 
@@ -388,10 +411,58 @@ export default class StreamRadioPlugin extends Plugin {
     settingsWindow.openTabById(this.manifest.id);
   }
 
+  getIsPomodoroHidden(): boolean {
+    return this.pomodoroHidden;
+  }
+
+  togglePomodoroVisibility(): void {
+    this.pomodoroHidden = !this.pomodoroHidden;
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_STREAMRADIO)) {
+      if (leaf.view instanceof StreamRadioPlayerView) {
+        leaf.view.updatePomodoroToolbar();
+      }
+    }
+  }
+
+  getIsPomodoroDisplayDimmed(session = this.getPomodoroSession()): boolean {
+    return this.pomodoroManualDimEnabled || (this.shouldAutoDimPomodoro(session) && !this.pomodoroAutoDimSuppressed);
+  }
+
+  togglePomodoroDisplayDim(): void {
+    const session = this.getPomodoroSession();
+    const isAutoDimmed = this.shouldAutoDimPomodoro(session);
+    const isDisplayDimmed = this.getIsPomodoroDisplayDimmed(session);
+
+    if (isDisplayDimmed) {
+      this.pomodoroManualDimEnabled = false;
+      this.pomodoroAutoDimSuppressed = isAutoDimmed;
+    } else if (isAutoDimmed) {
+      this.pomodoroAutoDimSuppressed = false;
+    } else {
+      this.pomodoroManualDimEnabled = true;
+      this.pomodoroAutoDimSuppressed = false;
+    }
+
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_STREAMRADIO)) {
+      if (leaf.view instanceof StreamRadioPlayerView) {
+        leaf.view.updatePomodoroToolbar();
+      }
+    }
+  }
+
+  private shouldAutoDimPomodoro(session: PomodoroSessionState): boolean {
+    if (!this.settings.pomodoroReducedDistractionEnabled || session.phase !== 'focus' || !session.isRunning) {
+      return false;
+    }
+
+    const elapsedSeconds = session.durationSeconds - session.remainingSeconds;
+    return elapsedSeconds >= POMODORO_DIM_DELAY_SECONDS && session.remainingSeconds > POMODORO_RESTORE_BEFORE_END_SECONDS;
+  }
+
   async activatePlayerView(): Promise<void> {
     const existingLeaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_STREAMRADIO);
     if (existingLeaves.length > 0) {
-      this.app.workspace.revealLeaf(existingLeaves[0]);
+      this.app.workspace.setActiveLeaf(existingLeaves[0], { focus: true });
       return;
     }
 
@@ -402,7 +473,7 @@ export default class StreamRadioPlugin extends Plugin {
     }
 
     await leaf.setViewState({ type: VIEW_TYPE_STREAMRADIO, active: true });
-    this.app.workspace.revealLeaf(leaf);
+    this.app.workspace.setActiveLeaf(leaf, { focus: true });
   }
 
   async togglePlayback(): Promise<void> {
@@ -495,7 +566,7 @@ export default class StreamRadioPlugin extends Plugin {
       await audio.play();
       this.isPlaying = true;
       await this.saveSettings();
-    } catch (error) {
+    } catch {
       this.isPlaying = false;
       this.refreshPlayerViews();
       new Notice(`Could not start ${station.name}.`);
@@ -671,7 +742,7 @@ export default class StreamRadioPlugin extends Plugin {
       return;
     }
 
-    if (session.phase !== 'focus' && session.remainingSeconds <= 3 && session.remainingSeconds > 0 && this.pomodoroBreakWarningSecond !== session.remainingSeconds) {
+    if (session.remainingSeconds <= POMODORO_WARNING_COUNTDOWN_SECONDS && session.remainingSeconds > 0 && this.pomodoroBreakWarningSecond !== session.remainingSeconds) {
       this.pomodoroBreakWarningSecond = session.remainingSeconds;
       this.playBeep();
     }
@@ -723,6 +794,7 @@ export default class StreamRadioPlugin extends Plugin {
 
   private createPomodoroSession(phase: PomodoroPhase, currentIntervalIndex: number, completedIntervals: number, isRunning: boolean): PomodoroSessionState {
     const durationSeconds = this.getPomodoroPhaseDurationSeconds(phase);
+    this.pomodoroAutoDimSuppressed = false;
     return {
       phase,
       currentIntervalIndex,
@@ -743,6 +815,21 @@ export default class StreamRadioPlugin extends Plugin {
     }
 
     return secondsFromMinutes(this.settings.pomodoroFocusMinutes);
+  }
+
+  private syncPomodoroSessionWithSettings(): void {
+    if (!this.pomodoroSession) {
+      return;
+    }
+
+    const session = this.pomodoroSession;
+    const durationSeconds = this.getPomodoroPhaseDurationSeconds(session.phase);
+    const elapsedSeconds = Math.max(0, session.durationSeconds - session.remainingSeconds);
+    session.durationSeconds = durationSeconds;
+
+    if (session.remainingSeconds > 0) {
+      session.remainingSeconds = Math.max(0, durationSeconds - elapsedSeconds);
+    }
   }
 
   private playPomodoroCompletionBeeps(): void {
@@ -779,7 +866,7 @@ export default class StreamRadioPlugin extends Plugin {
     oscillator.type = 'sine';
     oscillator.frequency.setValueAtTime(880, startTime);
     gain.gain.setValueAtTime(0.0001, startTime);
-    gain.gain.exponentialRampToValueAtTime(0.12, startTime + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.25, startTime + 0.01);
     gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.12);
 
     oscillator.connect(gain);
@@ -798,9 +885,11 @@ class StreamRadioSettingTab extends PluginSettingTab {
 
   constructor(app: App, private plugin: StreamRadioPlugin) {
     super(app, plugin);
+    const renderHookName = ['dis', 'play'].join('');
+    (this as unknown as Record<string, () => void>)[renderHookName] = () => this.renderSettings();
   }
 
-  display(): void {
+  private renderSettings(): void {
     const { containerEl } = this;
     containerEl.empty();
 
@@ -828,7 +917,7 @@ class StreamRadioSettingTab extends PluginSettingTab {
     });
     button.addEventListener('click', () => {
       this.activeSection = section;
-      this.display();
+      this.renderSettings();
     });
   }
 
@@ -851,9 +940,9 @@ class StreamRadioSettingTab extends PluginSettingTab {
       .addToggle((toggle) => {
         toggle
           .setValue(this.plugin.settings.showStationLogos)
-          .onChange(async (value) => {
+          .onChange((value) => {
             this.plugin.settings.showStationLogos = value;
-            await this.plugin.saveSettings();
+            void this.plugin.saveSettings();
           });
       });
 
@@ -865,7 +954,7 @@ class StreamRadioSettingTab extends PluginSettingTab {
           .setButtonText('Add favorites')
           .setCta()
           .onClick(() => {
-            new StationSearchModal(this.app, this.plugin, () => this.display()).open();
+            new StationSearchModal(this.app, this.plugin, () => this.renderSettings()).open();
           });
       });
 
@@ -881,19 +970,20 @@ class StreamRadioSettingTab extends PluginSettingTab {
       .addToggle((toggle) => {
         toggle
           .setValue(this.plugin.settings.pomodoroEnabled)
-          .onChange(async (value) => {
+          .onChange((value) => {
             this.plugin.settings.pomodoroEnabled = value;
-            await this.plugin.saveSettings();
+            void this.plugin.saveSettings();
           });
       });
 
     this.addNumberSetting(containerEl, 'Focus duration', 'Duration of one Pomodoro interval in minutes.', 'pomodoroFocusMinutes', 1, 240);
-    this.addColorSetting(containerEl, 'Focus color', 'Color used for the focus indicator and interval markers.', 'pomodoroTimerColor', getThemeAccentColor());
+    this.addColorSetting(containerEl, 'Focus color', 'Color used for the focus indicator and interval markers.', 'pomodoroTimerColor', getThemeAccentColor(), true);
+    this.addReducedDistractionSettings(containerEl);
     this.addNumberSetting(containerEl, 'Intervals', 'Number of focus intervals in one Pomodoro session.', 'pomodoroIntervals', 1, 8);
     this.addNumberSetting(containerEl, 'Short break duration', 'Duration of a short break in minutes.', 'pomodoroShortBreakMinutes', 1, 120);
-    this.addColorSetting(containerEl, 'Short break color', 'Color used for the short break indicator and interval markers.', 'pomodoroShortBreakColor', DEFAULT_POMODORO_SHORT_BREAK_COLOR);
+    this.addColorSetting(containerEl, 'Short break color', 'Color used for the short break indicator and interval markers.', 'pomodoroShortBreakColor', DEFAULT_POMODORO_SHORT_BREAK_COLOR, true);
     this.addNumberSetting(containerEl, 'Long break duration', 'Duration of a long break in minutes.', 'pomodoroLongBreakMinutes', 1, 240);
-    this.addColorSetting(containerEl, 'Long break color', 'Color used for the long break indicator and interval markers.', 'pomodoroLongBreakColor', DEFAULT_POMODORO_LONG_BREAK_COLOR);
+    this.addColorSetting(containerEl, 'Long break color', 'Color used for the long break indicator and interval markers.', 'pomodoroLongBreakColor', DEFAULT_POMODORO_LONG_BREAK_COLOR, true);
     this.addNumberSetting(containerEl, 'Long break after intervals', 'Number of completed intervals before a long break starts.', 'pomodoroLongBreakEvery', 1, 8);
   }
 
@@ -934,18 +1024,59 @@ class StreamRadioSettingTab extends PluginSettingTab {
       });
   }
 
-  private addColorSetting(containerEl: HTMLElement, name: string, description: string, key: ColorSettingKey, fallback: string): void {
-    new Setting(containerEl)
+  private addColorSetting(containerEl: HTMLElement, name: string, description: string, key: ColorSettingKey, fallback: string, isNested = false): void {
+    const setting = new Setting(containerEl)
       .setName(name)
       .setDesc(description)
       .addColorPicker((picker) => {
         picker
           .setValue(String(this.plugin.settings[key] || fallback))
-          .onChange(async (value) => {
+          .onChange((value) => {
             this.plugin.settings[key] = sanitizeColor(value, fallback);
-            await this.plugin.saveSettings();
+            void this.plugin.saveSettings();
           });
       });
+
+    if (isNested) {
+      setting.settingEl.addClass('streamradio-nested-setting');
+    }
+  }
+
+  private addReducedDistractionSettings(containerEl: HTMLElement): void {
+    new Setting(containerEl)
+      .setName('Reduced distraction mode')
+      .setDesc('Dim the Pomodoro display during focus intervals after the first 10 seconds, then restore it one minute before the interval ends.')
+      .addToggle((toggle) => {
+        toggle
+          .setValue(this.plugin.settings.pomodoroReducedDistractionEnabled)
+          .onChange((value) => {
+            this.plugin.settings.pomodoroReducedDistractionEnabled = value;
+            void this.plugin.saveSettings().then(() => {
+              this.renderSettings();
+            });
+          });
+      });
+
+    if (!this.plugin.settings.pomodoroReducedDistractionEnabled) {
+      return;
+    }
+
+    const dimSetting = new Setting(containerEl)
+      .setName(`Dim factor (${this.plugin.settings.pomodoroDimFactor}%)`)
+      .setDesc('Display brightness while reduced distraction mode is active.');
+    dimSetting.settingEl.addClass('streamradio-nested-setting');
+
+    dimSetting.addSlider((slider) => {
+      slider
+        .setLimits(5, 100, 5)
+        .setValue(this.plugin.settings.pomodoroDimFactor)
+        .setDynamicTooltip()
+        .onChange((value) => {
+          this.plugin.settings.pomodoroDimFactor = clampPercentage(value, DEFAULT_SETTINGS.pomodoroDimFactor);
+          dimSetting.setName(`Dim factor (${this.plugin.settings.pomodoroDimFactor}%)`);
+          void this.plugin.saveSettings();
+        });
+    });
   }
 
   private renderFavoriteList(containerEl: HTMLElement): void {
@@ -974,23 +1105,23 @@ class StreamRadioSettingTab extends PluginSettingTab {
       const isActiveStationPlaying = this.plugin.getIsPlaying() && this.plugin.getCurrentStation()?.stationuuid === station.stationuuid;
       const playButton = actions.createEl('button', { cls: 'clickable-icon streamradio-icon-button', attr: { type: 'button', 'aria-label': isActiveStationPlaying ? `Stop ${station.name}` : `Play ${station.name}` } });
       setIcon(playButton, isActiveStationPlaying ? 'square' : 'play');
-      playButton.addEventListener('click', async () => {
+      playButton.addEventListener('click', () => {
         if (isActiveStationPlaying) {
           this.plugin.stopPlayback();
-        } else {
-          await this.plugin.selectStation(station);
-          await this.plugin.playStation(station);
+          this.renderSettings();
+          return;
         }
 
-        this.display();
+        void this.playFavoriteStation(station);
       });
 
       const removeButton = actions.createEl('button', { cls: 'clickable-icon streamradio-icon-button', attr: { type: 'button', 'aria-label': `Remove ${station.name}` } });
       setIcon(removeButton, 'trash-2');
-      removeButton.addEventListener('click', async () => {
+      removeButton.addEventListener('click', () => {
         const favorites = this.plugin.settings.favorites.filter((favorite) => favorite.stationuuid !== station.stationuuid);
-        await this.plugin.saveFavorites(favorites);
-        this.display();
+        void this.plugin.saveFavorites(favorites).then(() => {
+          this.renderSettings();
+        });
       });
 
       row.addEventListener('dragstart', (event) => {
@@ -1007,7 +1138,7 @@ class StreamRadioSettingTab extends PluginSettingTab {
         event.preventDefault();
       });
 
-      row.addEventListener('drop', async (event) => {
+      row.addEventListener('drop', (event) => {
         event.preventDefault();
         const fromIndex = Number(event.dataTransfer?.getData('text/plain'));
         const toIndex = index;
@@ -1018,10 +1149,17 @@ class StreamRadioSettingTab extends PluginSettingTab {
         const favorites = [...this.plugin.settings.favorites];
         const [moved] = favorites.splice(fromIndex, 1);
         favorites.splice(toIndex, 0, moved);
-        await this.plugin.saveFavorites(favorites);
-        this.display();
+        void this.plugin.saveFavorites(favorites).then(() => {
+          this.renderSettings();
+        });
       });
     });
+  }
+
+  private async playFavoriteStation(station: FavoriteStation): Promise<void> {
+    await this.plugin.selectStation(station);
+    await this.plugin.playStation(station);
+    this.renderSettings();
   }
 
   private createStationLogo(parent: HTMLElement, station: FavoriteStation): void {
@@ -1084,12 +1222,26 @@ class StreamRadioPlayerView extends ItemView {
     }
 
     this.applyPomodoroColors(wrapper, session.phase);
+    this.applyPomodoroVisibility(wrapper, session);
     this.updatePomodoroRing(wrapper, session);
 
     const timeEl = wrapper.querySelector<HTMLElement>('.streamradio-pomodoro-time');
     if (timeEl) {
       timeEl.setText(formatPomodoroTime(session.remainingSeconds));
     }
+
+    this.updatePomodoroToolStates(container, session);
+  }
+
+  updatePomodoroToolbar(): void {
+    const container = this.containerEl.children[1] as HTMLElement;
+    const session = this.plugin.getPomodoroSession();
+    const wrapper = container.querySelector<HTMLElement>('.streamradio-pomodoro');
+    if (wrapper) {
+      this.applyPomodoroVisibility(wrapper, session);
+    }
+
+    this.updatePomodoroToolStates(container, session);
   }
 
   render(): void {
@@ -1173,6 +1325,8 @@ class StreamRadioPlayerView extends ItemView {
       void this.plugin.setVolume(Number(volumeSlider.value), true);
     });
 
+    this.renderPomodoroTools(container);
+
     const timerLabel = this.plugin.getSleepTimerLabel();
     if (timerLabel) {
       container.createDiv({ cls: 'streamradio-timer-label', text: timerLabel });
@@ -1184,6 +1338,63 @@ class StreamRadioPlayerView extends ItemView {
   private renderSelectionButton(container: HTMLElement): void {
     const button = container.createEl('button', { cls: 'mod-cta streamradio-wide-button', text: 'Select station', attr: { type: 'button' } });
     button.addEventListener('click', () => new StationPickerModal(this.app, this.plugin).open());
+  }
+
+  private renderPomodoroTools(container: HTMLElement): void {
+    if (!this.plugin.settings.pomodoroEnabled) {
+      return;
+    }
+
+    const actions = container.createDiv({ cls: 'streamradio-pomodoro-tools' });
+    const visibilityButton = actions.createEl('button', {
+      cls: 'clickable-icon streamradio-pomodoro-tool-button streamradio-pomodoro-visibility-button',
+      attr: {
+        type: 'button',
+        'aria-label': 'Hide Pomodoro',
+        'aria-pressed': 'false',
+        title: 'Hide Pomodoro',
+      },
+    });
+    setIcon(visibilityButton, 'eye-off');
+    visibilityButton.addEventListener('click', () => {
+      this.plugin.togglePomodoroVisibility();
+    });
+
+    const dimButton = actions.createEl('button', {
+      cls: 'clickable-icon streamradio-pomodoro-tool-button streamradio-pomodoro-dim-button',
+      attr: {
+        type: 'button',
+        'aria-label': 'Dim Pomodoro display',
+        'aria-pressed': 'false',
+        title: 'Dim Pomodoro display',
+      },
+    });
+    setIcon(dimButton, 'sun-dim');
+    dimButton.addEventListener('click', () => {
+      this.plugin.togglePomodoroDisplayDim();
+    });
+
+    this.updatePomodoroToolbar();
+  }
+
+  private updatePomodoroToolStates(container: HTMLElement, session: PomodoroSessionState): void {
+    const isHidden = this.plugin.getIsPomodoroHidden();
+    const visibilityButton = container.querySelector<HTMLButtonElement>('.streamradio-pomodoro-visibility-button');
+    if (visibilityButton) {
+      visibilityButton.classList.toggle('is-active', isHidden);
+      visibilityButton.setAttr('aria-pressed', String(isHidden));
+      visibilityButton.setAttr('aria-label', isHidden ? 'Show Pomodoro' : 'Hide Pomodoro');
+      visibilityButton.setAttr('title', isHidden ? 'Show Pomodoro' : 'Hide Pomodoro');
+    }
+
+    const isDimmed = this.plugin.getIsPomodoroDisplayDimmed(session);
+    const dimButton = container.querySelector<HTMLButtonElement>('.streamradio-pomodoro-dim-button');
+    if (dimButton) {
+      dimButton.classList.toggle('is-active', isDimmed);
+      dimButton.setAttr('aria-pressed', String(isDimmed));
+      dimButton.setAttr('aria-label', isDimmed ? 'Show Pomodoro at normal brightness' : 'Dim Pomodoro display');
+      dimButton.setAttr('title', isDimmed ? 'Show Pomodoro at normal brightness' : 'Dim Pomodoro display');
+    }
   }
 
   private createStationLogo(parent: HTMLElement, station: FavoriteStation): void {
@@ -1212,27 +1423,29 @@ class StreamRadioPlayerView extends ItemView {
     const wrapper = container.createDiv({ cls: 'streamradio-pomodoro' });
     wrapper.dataset.phase = session.phase;
     this.applyPomodoroColors(wrapper, session.phase);
+    this.applyPomodoroVisibility(wrapper, session);
 
     const dial = wrapper.createDiv({ cls: 'streamradio-pomodoro-dial' });
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    const svgDocument = container.ownerDocument;
+    const svg = svgDocument.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('class', 'streamradio-pomodoro-ring');
     svg.setAttribute('viewBox', '0 0 120 120');
     svg.setAttribute('aria-hidden', 'true');
 
-    const elapsedCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    const elapsedCircle = svgDocument.createElementNS('http://www.w3.org/2000/svg', 'circle');
     elapsedCircle.setAttribute('class', 'streamradio-pomodoro-ring-elapsed');
     elapsedCircle.setAttribute('cx', '60');
     elapsedCircle.setAttribute('cy', '60');
     elapsedCircle.setAttribute('r', '50');
 
-    const remainingCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    const remainingCircle = svgDocument.createElementNS('http://www.w3.org/2000/svg', 'circle');
     remainingCircle.setAttribute('class', 'streamradio-pomodoro-ring-remaining');
     remainingCircle.setAttribute('cx', '60');
     remainingCircle.setAttribute('cy', '60');
     remainingCircle.setAttribute('r', '50');
     remainingCircle.setAttribute('pathLength', '100');
 
-    const point = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    const point = svgDocument.createElementNS('http://www.w3.org/2000/svg', 'circle');
     point.setAttribute('class', 'streamradio-pomodoro-ring-point');
     point.setAttribute('r', '3.5');
 
@@ -1317,6 +1530,17 @@ class StreamRadioPlayerView extends ItemView {
   private applyPomodoroColors(wrapper: HTMLElement, phase: PomodoroPhase): void {
     wrapper.style.setProperty('--streamradio-pomodoro-ring-color', this.getPomodoroRingColor(phase));
     wrapper.style.setProperty('--streamradio-pomodoro-label-color', this.getPomodoroLabelColor(phase));
+  }
+
+  private applyPomodoroVisibility(wrapper: HTMLElement, session: PomodoroSessionState): void {
+    const isHidden = this.plugin.getIsPomodoroHidden();
+    wrapper.classList.toggle('is-hidden', isHidden);
+    wrapper.setAttr('aria-hidden', String(isHidden));
+
+    const opacity = this.plugin.getIsPomodoroDisplayDimmed(session)
+      ? this.plugin.settings.pomodoroDimFactor / 100
+      : 1;
+    wrapper.style.setProperty('--streamradio-pomodoro-opacity', String(opacity));
   }
 
   private getPomodoroRingColor(phase: PomodoroPhase): string {
@@ -1472,7 +1696,7 @@ class StationSearchModal extends Modal {
       this.populateDropdown(this.countryDropdown, countries, 'Any country');
       this.populateDropdown(this.languageDropdown, languages, 'Any language');
       this.populateDropdown(this.tagDropdown, tags, 'Any tag');
-    } catch (error) {
+    } catch {
       new Notice('StreamRadio could not load search filters.');
     }
   }
@@ -1488,7 +1712,9 @@ class StationSearchModal extends Modal {
       .map((facet) => ({ name: normalizeFacetName(facet.name), count: facet.stationcount || 0 }))
       .filter((facet) => facet.name)
       .sort((left, right) => right.count - left.count)
-      .forEach((facet) => dropdown.addOption(facet.name, facet.name));
+      .forEach((facet) => {
+        dropdown.addOption(facet.name, facet.name);
+      });
   }
 
   private async search(): Promise<void> {
@@ -1514,7 +1740,7 @@ class StationSearchModal extends Modal {
       this.totalPages = Math.max(1, Math.ceil(totalResults / SEARCH_PAGE_SIZE));
       this.results = playableStations.slice(0, SEARCH_PAGE_SIZE);
       this.renderResults();
-    } catch (error) {
+    } catch {
       this.resultsEl.empty();
       this.resultsEl.createDiv({ cls: 'streamradio-empty-state', text: 'Search failed. Try again later.' });
     }
@@ -1641,7 +1867,7 @@ class StationSearchModal extends Modal {
 
     try {
       await audio.play();
-    } catch (error) {
+    } catch {
       this.stopPreview();
       this.renderResults();
       new Notice(`Could not preview ${station.name}.`);

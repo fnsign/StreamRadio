@@ -190,8 +190,8 @@ function sanitizeColor(value: string, fallback: string): string {
 }
 
 function getThemeAccentColor(): string {
-  const bodyStyle = getComputedStyle(document.body);
-  const rootStyle = getComputedStyle(document.documentElement);
+  const bodyStyle = getComputedStyle(activeDocument.body);
+  const rootStyle = getComputedStyle(activeDocument.documentElement);
   const hue = getCssVariableNumber(bodyStyle, rootStyle, '--accent-h');
   const saturation = getCssVariableNumber(bodyStyle, rootStyle, '--accent-s');
   const lightness = getCssVariableNumber(bodyStyle, rootStyle, '--accent-l');
@@ -306,8 +306,8 @@ export default class StreamRadioPlugin extends Plugin {
     });
 
     this.addCommand({
-      id: 'open-streamradio-player',
-      name: 'Open StreamRadio player',
+      id: 'open-player',
+      name: 'Open player',
       callback: () => {
         void this.activatePlayerView();
       },
@@ -462,7 +462,7 @@ export default class StreamRadioPlugin extends Plugin {
   async activatePlayerView(): Promise<void> {
     const existingLeaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_STREAMRADIO);
     if (existingLeaves.length > 0) {
-      this.app.workspace.revealLeaf(existingLeaves[0]);
+      this.app.workspace.setActiveLeaf(existingLeaves[0], { focus: true });
       return;
     }
 
@@ -473,7 +473,7 @@ export default class StreamRadioPlugin extends Plugin {
     }
 
     await leaf.setViewState({ type: VIEW_TYPE_STREAMRADIO, active: true });
-    this.app.workspace.revealLeaf(leaf);
+    this.app.workspace.setActiveLeaf(leaf, { focus: true });
   }
 
   async togglePlayback(): Promise<void> {
@@ -566,7 +566,7 @@ export default class StreamRadioPlugin extends Plugin {
       await audio.play();
       this.isPlaying = true;
       await this.saveSettings();
-    } catch (error) {
+    } catch {
       this.isPlaying = false;
       this.refreshPlayerViews();
       new Notice(`Could not start ${station.name}.`);
@@ -938,9 +938,9 @@ class StreamRadioSettingTab extends PluginSettingTab {
       .addToggle((toggle) => {
         toggle
           .setValue(this.plugin.settings.showStationLogos)
-          .onChange(async (value) => {
+          .onChange((value) => {
             this.plugin.settings.showStationLogos = value;
-            await this.plugin.saveSettings();
+            void this.plugin.saveSettings();
           });
       });
 
@@ -968,9 +968,9 @@ class StreamRadioSettingTab extends PluginSettingTab {
       .addToggle((toggle) => {
         toggle
           .setValue(this.plugin.settings.pomodoroEnabled)
-          .onChange(async (value) => {
+          .onChange((value) => {
             this.plugin.settings.pomodoroEnabled = value;
-            await this.plugin.saveSettings();
+            void this.plugin.saveSettings();
           });
       });
 
@@ -1029,9 +1029,9 @@ class StreamRadioSettingTab extends PluginSettingTab {
       .addColorPicker((picker) => {
         picker
           .setValue(String(this.plugin.settings[key] || fallback))
-          .onChange(async (value) => {
+          .onChange((value) => {
             this.plugin.settings[key] = sanitizeColor(value, fallback);
-            await this.plugin.saveSettings();
+            void this.plugin.saveSettings();
           });
       });
 
@@ -1047,10 +1047,11 @@ class StreamRadioSettingTab extends PluginSettingTab {
       .addToggle((toggle) => {
         toggle
           .setValue(this.plugin.settings.pomodoroReducedDistractionEnabled)
-          .onChange(async (value) => {
+          .onChange((value) => {
             this.plugin.settings.pomodoroReducedDistractionEnabled = value;
-            await this.plugin.saveSettings();
-            this.display();
+            void this.plugin.saveSettings().then(() => {
+              this.display();
+            });
           });
       });
 
@@ -1068,10 +1069,10 @@ class StreamRadioSettingTab extends PluginSettingTab {
         .setLimits(5, 100, 5)
         .setValue(this.plugin.settings.pomodoroDimFactor)
         .setDynamicTooltip()
-        .onChange(async (value) => {
+        .onChange((value) => {
           this.plugin.settings.pomodoroDimFactor = clampPercentage(value, DEFAULT_SETTINGS.pomodoroDimFactor);
           dimSetting.setName(`Dim factor (${this.plugin.settings.pomodoroDimFactor}%)`);
-          await this.plugin.saveSettings();
+          void this.plugin.saveSettings();
         });
     });
   }
@@ -1102,23 +1103,23 @@ class StreamRadioSettingTab extends PluginSettingTab {
       const isActiveStationPlaying = this.plugin.getIsPlaying() && this.plugin.getCurrentStation()?.stationuuid === station.stationuuid;
       const playButton = actions.createEl('button', { cls: 'clickable-icon streamradio-icon-button', attr: { type: 'button', 'aria-label': isActiveStationPlaying ? `Stop ${station.name}` : `Play ${station.name}` } });
       setIcon(playButton, isActiveStationPlaying ? 'square' : 'play');
-      playButton.addEventListener('click', async () => {
+      playButton.addEventListener('click', () => {
         if (isActiveStationPlaying) {
           this.plugin.stopPlayback();
-        } else {
-          await this.plugin.selectStation(station);
-          await this.plugin.playStation(station);
+          this.display();
+          return;
         }
 
-        this.display();
+        void this.playFavoriteStation(station);
       });
 
       const removeButton = actions.createEl('button', { cls: 'clickable-icon streamradio-icon-button', attr: { type: 'button', 'aria-label': `Remove ${station.name}` } });
       setIcon(removeButton, 'trash-2');
-      removeButton.addEventListener('click', async () => {
+      removeButton.addEventListener('click', () => {
         const favorites = this.plugin.settings.favorites.filter((favorite) => favorite.stationuuid !== station.stationuuid);
-        await this.plugin.saveFavorites(favorites);
-        this.display();
+        void this.plugin.saveFavorites(favorites).then(() => {
+          this.display();
+        });
       });
 
       row.addEventListener('dragstart', (event) => {
@@ -1135,7 +1136,7 @@ class StreamRadioSettingTab extends PluginSettingTab {
         event.preventDefault();
       });
 
-      row.addEventListener('drop', async (event) => {
+      row.addEventListener('drop', (event) => {
         event.preventDefault();
         const fromIndex = Number(event.dataTransfer?.getData('text/plain'));
         const toIndex = index;
@@ -1146,10 +1147,17 @@ class StreamRadioSettingTab extends PluginSettingTab {
         const favorites = [...this.plugin.settings.favorites];
         const [moved] = favorites.splice(fromIndex, 1);
         favorites.splice(toIndex, 0, moved);
-        await this.plugin.saveFavorites(favorites);
-        this.display();
+        void this.plugin.saveFavorites(favorites).then(() => {
+          this.display();
+        });
       });
     });
+  }
+
+  private async playFavoriteStation(station: FavoriteStation): Promise<void> {
+    await this.plugin.selectStation(station);
+    await this.plugin.playStation(station);
+    this.display();
   }
 
   private createStationLogo(parent: HTMLElement, station: FavoriteStation): void {
@@ -1416,25 +1424,26 @@ class StreamRadioPlayerView extends ItemView {
     this.applyPomodoroVisibility(wrapper, session);
 
     const dial = wrapper.createDiv({ cls: 'streamradio-pomodoro-dial' });
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    const svgDocument = container.ownerDocument;
+    const svg = svgDocument.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('class', 'streamradio-pomodoro-ring');
     svg.setAttribute('viewBox', '0 0 120 120');
     svg.setAttribute('aria-hidden', 'true');
 
-    const elapsedCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    const elapsedCircle = svgDocument.createElementNS('http://www.w3.org/2000/svg', 'circle');
     elapsedCircle.setAttribute('class', 'streamradio-pomodoro-ring-elapsed');
     elapsedCircle.setAttribute('cx', '60');
     elapsedCircle.setAttribute('cy', '60');
     elapsedCircle.setAttribute('r', '50');
 
-    const remainingCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    const remainingCircle = svgDocument.createElementNS('http://www.w3.org/2000/svg', 'circle');
     remainingCircle.setAttribute('class', 'streamradio-pomodoro-ring-remaining');
     remainingCircle.setAttribute('cx', '60');
     remainingCircle.setAttribute('cy', '60');
     remainingCircle.setAttribute('r', '50');
     remainingCircle.setAttribute('pathLength', '100');
 
-    const point = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    const point = svgDocument.createElementNS('http://www.w3.org/2000/svg', 'circle');
     point.setAttribute('class', 'streamradio-pomodoro-ring-point');
     point.setAttribute('r', '3.5');
 
@@ -1685,7 +1694,7 @@ class StationSearchModal extends Modal {
       this.populateDropdown(this.countryDropdown, countries, 'Any country');
       this.populateDropdown(this.languageDropdown, languages, 'Any language');
       this.populateDropdown(this.tagDropdown, tags, 'Any tag');
-    } catch (error) {
+    } catch {
       new Notice('StreamRadio could not load search filters.');
     }
   }
@@ -1727,7 +1736,7 @@ class StationSearchModal extends Modal {
       this.totalPages = Math.max(1, Math.ceil(totalResults / SEARCH_PAGE_SIZE));
       this.results = playableStations.slice(0, SEARCH_PAGE_SIZE);
       this.renderResults();
-    } catch (error) {
+    } catch {
       this.resultsEl.empty();
       this.resultsEl.createDiv({ cls: 'streamradio-empty-state', text: 'Search failed. Try again later.' });
     }
@@ -1854,7 +1863,7 @@ class StationSearchModal extends Modal {
 
     try {
       await audio.play();
-    } catch (error) {
+    } catch {
       this.stopPreview();
       this.renderResults();
       new Notice(`Could not preview ${station.name}.`);

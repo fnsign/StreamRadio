@@ -415,7 +415,17 @@ export default class StreamRadioPlugin extends Plugin {
     this.pomodoroHidden = !this.pomodoroHidden;
     for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_STREAMRADIO)) {
       if (leaf.view instanceof StreamRadioPlayerView) {
-        leaf.view.updatePomodoroVisibility();
+        leaf.view.updatePomodoroToolbar();
+      }
+    }
+  }
+
+  async togglePomodoroReducedDistraction(): Promise<void> {
+    this.settings.pomodoroReducedDistractionEnabled = !this.settings.pomodoroReducedDistractionEnabled;
+    await this.saveData(this.settings);
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_STREAMRADIO)) {
+      if (leaf.view instanceof StreamRadioPlayerView) {
+        leaf.view.updatePomodoroToolbar();
       }
     }
   }
@@ -920,13 +930,13 @@ class StreamRadioSettingTab extends PluginSettingTab {
       });
 
     this.addNumberSetting(containerEl, 'Focus duration', 'Duration of one Pomodoro interval in minutes.', 'pomodoroFocusMinutes', 1, 240);
-    this.addColorSetting(containerEl, 'Focus color', 'Color used for the focus indicator and interval markers.', 'pomodoroTimerColor', getThemeAccentColor());
+    this.addColorSetting(containerEl, 'Focus color', 'Color used for the focus indicator and interval markers.', 'pomodoroTimerColor', getThemeAccentColor(), true);
     this.addReducedDistractionSettings(containerEl);
     this.addNumberSetting(containerEl, 'Intervals', 'Number of focus intervals in one Pomodoro session.', 'pomodoroIntervals', 1, 8);
     this.addNumberSetting(containerEl, 'Short break duration', 'Duration of a short break in minutes.', 'pomodoroShortBreakMinutes', 1, 120);
-    this.addColorSetting(containerEl, 'Short break color', 'Color used for the short break indicator and interval markers.', 'pomodoroShortBreakColor', DEFAULT_POMODORO_SHORT_BREAK_COLOR);
+    this.addColorSetting(containerEl, 'Short break color', 'Color used for the short break indicator and interval markers.', 'pomodoroShortBreakColor', DEFAULT_POMODORO_SHORT_BREAK_COLOR, true);
     this.addNumberSetting(containerEl, 'Long break duration', 'Duration of a long break in minutes.', 'pomodoroLongBreakMinutes', 1, 240);
-    this.addColorSetting(containerEl, 'Long break color', 'Color used for the long break indicator and interval markers.', 'pomodoroLongBreakColor', DEFAULT_POMODORO_LONG_BREAK_COLOR);
+    this.addColorSetting(containerEl, 'Long break color', 'Color used for the long break indicator and interval markers.', 'pomodoroLongBreakColor', DEFAULT_POMODORO_LONG_BREAK_COLOR, true);
     this.addNumberSetting(containerEl, 'Long break after intervals', 'Number of completed intervals before a long break starts.', 'pomodoroLongBreakEvery', 1, 8);
   }
 
@@ -967,8 +977,8 @@ class StreamRadioSettingTab extends PluginSettingTab {
       });
   }
 
-  private addColorSetting(containerEl: HTMLElement, name: string, description: string, key: ColorSettingKey, fallback: string): void {
-    new Setting(containerEl)
+  private addColorSetting(containerEl: HTMLElement, name: string, description: string, key: ColorSettingKey, fallback: string, isNested = false): void {
+    const setting = new Setting(containerEl)
       .setName(name)
       .setDesc(description)
       .addColorPicker((picker) => {
@@ -979,6 +989,10 @@ class StreamRadioSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           });
       });
+
+    if (isNested) {
+      setting.settingEl.addClass('streamradio-nested-setting');
+    }
   }
 
   private addReducedDistractionSettings(containerEl: HTMLElement): void {
@@ -991,12 +1005,18 @@ class StreamRadioSettingTab extends PluginSettingTab {
           .onChange(async (value) => {
             this.plugin.settings.pomodoroReducedDistractionEnabled = value;
             await this.plugin.saveSettings();
+            this.display();
           });
       });
+
+    if (!this.plugin.settings.pomodoroReducedDistractionEnabled) {
+      return;
+    }
 
     const dimSetting = new Setting(containerEl)
       .setName(`Dim factor (${this.plugin.settings.pomodoroDimFactor}%)`)
       .setDesc('Display brightness while reduced distraction mode is active.');
+    dimSetting.settingEl.addClass('streamradio-nested-setting');
 
     dimSetting.addSlider((slider) => {
       slider
@@ -1156,7 +1176,7 @@ class StreamRadioPlayerView extends ItemView {
     }
   }
 
-  updatePomodoroVisibility(): void {
+  updatePomodoroToolbar(): void {
     const container = this.containerEl.children[1] as HTMLElement;
     const session = this.plugin.getPomodoroSession();
     const wrapper = container.querySelector<HTMLElement>('.streamradio-pomodoro');
@@ -1165,10 +1185,21 @@ class StreamRadioPlayerView extends ItemView {
     }
 
     const isHidden = this.plugin.getIsPomodoroHidden();
-    const button = container.querySelector<HTMLButtonElement>('.streamradio-pomodoro-visibility-toggle');
-    if (button) {
-      button.setText(isHidden ? 'Show-Pomodoro' : 'Hide Pomodoro');
-      button.setAttr('aria-pressed', String(isHidden));
+    const visibilityButton = container.querySelector<HTMLButtonElement>('.streamradio-pomodoro-visibility-button');
+    if (visibilityButton) {
+      visibilityButton.classList.toggle('is-active', isHidden);
+      visibilityButton.setAttr('aria-pressed', String(isHidden));
+      visibilityButton.setAttr('aria-label', isHidden ? 'Show Pomodoro' : 'Hide Pomodoro');
+      visibilityButton.setAttr('title', isHidden ? 'Show Pomodoro' : 'Hide Pomodoro');
+    }
+
+    const isDimEnabled = this.plugin.settings.pomodoroReducedDistractionEnabled;
+    const dimButton = container.querySelector<HTMLButtonElement>('.streamradio-pomodoro-dim-button');
+    if (dimButton) {
+      dimButton.classList.toggle('is-active', isDimEnabled);
+      dimButton.setAttr('aria-pressed', String(isDimEnabled));
+      dimButton.setAttr('aria-label', isDimEnabled ? 'Disable reduced distraction mode' : 'Enable reduced distraction mode');
+      dimButton.setAttr('title', isDimEnabled ? 'Disable reduced distraction mode' : 'Enable reduced distraction mode');
     }
   }
 
@@ -1253,7 +1284,7 @@ class StreamRadioPlayerView extends ItemView {
       void this.plugin.setVolume(Number(volumeSlider.value), true);
     });
 
-    this.renderPomodoroVisibilityToggle(container);
+    this.renderPomodoroTools(container);
 
     const timerLabel = this.plugin.getSleepTimerLabel();
     if (timerLabel) {
@@ -1268,23 +1299,43 @@ class StreamRadioPlayerView extends ItemView {
     button.addEventListener('click', () => new StationPickerModal(this.app, this.plugin).open());
   }
 
-  private renderPomodoroVisibilityToggle(container: HTMLElement): void {
+  private renderPomodoroTools(container: HTMLElement): void {
     if (!this.plugin.settings.pomodoroEnabled) {
       return;
     }
 
-    const isHidden = this.plugin.getIsPomodoroHidden();
-    const button = container.createEl('button', {
-      cls: 'streamradio-pomodoro-visibility-toggle',
-      text: isHidden ? 'Show-Pomodoro' : 'Hide Pomodoro',
+    container.createDiv({ cls: 'streamradio-player-pomodoro-divider', attr: { 'aria-hidden': 'true' } });
+
+    const actions = container.createDiv({ cls: 'streamradio-pomodoro-tools' });
+    const visibilityButton = actions.createEl('button', {
+      cls: 'clickable-icon streamradio-pomodoro-tool-button streamradio-pomodoro-visibility-button',
       attr: {
         type: 'button',
-        'aria-pressed': String(isHidden),
+        'aria-label': 'Hide Pomodoro',
+        'aria-pressed': 'false',
+        title: 'Hide Pomodoro',
       },
     });
-    button.addEventListener('click', () => {
+    setIcon(visibilityButton, 'eye-off');
+    visibilityButton.addEventListener('click', () => {
       this.plugin.togglePomodoroVisibility();
     });
+
+    const dimButton = actions.createEl('button', {
+      cls: 'clickable-icon streamradio-pomodoro-tool-button streamradio-pomodoro-dim-button',
+      attr: {
+        type: 'button',
+        'aria-label': 'Disable reduced distraction mode',
+        'aria-pressed': 'true',
+        title: 'Disable reduced distraction mode',
+      },
+    });
+    setIcon(dimButton, 'sun-dim');
+    dimButton.addEventListener('click', () => {
+      void this.plugin.togglePomodoroReducedDistraction();
+    });
+
+    this.updatePomodoroToolbar();
   }
 
   private createStationLogo(parent: HTMLElement, station: FavoriteStation): void {

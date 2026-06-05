@@ -292,7 +292,7 @@ export default class StreamRadioPlugin extends Plugin {
   private pomodoroBeepTimeoutIds: number[] = [];
   private beepAudioContext: AudioContext | null = null;
   private pomodoroHidden = false;
-  private pomodoroDimOverride: boolean | null = null;
+  private pomodoroManualDimEnabled = false;
 
   async onload(): Promise<void> {
     await this.loadSettings();
@@ -422,20 +422,20 @@ export default class StreamRadioPlugin extends Plugin {
   }
 
   getIsPomodoroDisplayDimmed(session = this.getPomodoroSession()): boolean {
-    if (this.pomodoroDimOverride !== null) {
-      return this.pomodoroDimOverride;
-    }
-
-    return this.shouldAutoDimPomodoro(session);
+    return this.pomodoroManualDimEnabled || this.shouldAutoDimPomodoro(session);
   }
 
   togglePomodoroDisplayDim(): void {
-    this.pomodoroDimOverride = !this.getIsPomodoroDisplayDimmed();
+    this.pomodoroManualDimEnabled = !this.pomodoroManualDimEnabled;
     for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_STREAMRADIO)) {
       if (leaf.view instanceof StreamRadioPlayerView) {
         leaf.view.updatePomodoroToolbar();
       }
     }
+  }
+
+  getIsPomodoroManualDimEnabled(): boolean {
+    return this.pomodoroManualDimEnabled;
   }
 
   private shouldAutoDimPomodoro(session: PomodoroSessionState): boolean {
@@ -1350,12 +1350,13 @@ class StreamRadioPlayerView extends ItemView {
     }
 
     const isDimmed = this.plugin.getIsPomodoroDisplayDimmed(session);
+    const isManualDimEnabled = this.plugin.getIsPomodoroManualDimEnabled();
     const dimButton = container.querySelector<HTMLButtonElement>('.streamradio-pomodoro-dim-button');
     if (dimButton) {
       dimButton.classList.toggle('is-active', isDimmed);
       dimButton.setAttr('aria-pressed', String(isDimmed));
-      dimButton.setAttr('aria-label', isDimmed ? 'Show Pomodoro at normal brightness' : 'Dim Pomodoro display');
-      dimButton.setAttr('title', isDimmed ? 'Show Pomodoro at normal brightness' : 'Dim Pomodoro display');
+      dimButton.setAttr('aria-label', isManualDimEnabled ? 'Disable manual Pomodoro dimming' : 'Dim Pomodoro display');
+      dimButton.setAttr('title', isManualDimEnabled ? 'Disable manual Pomodoro dimming' : 'Dim Pomodoro display');
     }
   }
 

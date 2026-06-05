@@ -413,7 +413,11 @@ export default class StreamRadioPlugin extends Plugin {
 
   togglePomodoroVisibility(): void {
     this.pomodoroHidden = !this.pomodoroHidden;
-    this.refreshPlayerViews();
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_STREAMRADIO)) {
+      if (leaf.view instanceof StreamRadioPlayerView) {
+        leaf.view.updatePomodoroVisibility();
+      }
+    }
   }
 
   async activatePlayerView(): Promise<void> {
@@ -1149,6 +1153,22 @@ class StreamRadioPlayerView extends ItemView {
     const timeEl = wrapper.querySelector<HTMLElement>('.streamradio-pomodoro-time');
     if (timeEl) {
       timeEl.setText(formatPomodoroTime(session.remainingSeconds));
+    }
+  }
+
+  updatePomodoroVisibility(): void {
+    const container = this.containerEl.children[1] as HTMLElement;
+    const session = this.plugin.getPomodoroSession();
+    const wrapper = container.querySelector<HTMLElement>('.streamradio-pomodoro');
+    if (wrapper) {
+      this.applyPomodoroVisibility(wrapper, session);
+    }
+
+    const isHidden = this.plugin.getIsPomodoroHidden();
+    const button = container.querySelector<HTMLButtonElement>('.streamradio-pomodoro-visibility-toggle');
+    if (button) {
+      button.setText(isHidden ? 'Show-Pomodoro' : 'Hide Pomodoro');
+      button.setAttr('aria-pressed', String(isHidden));
     }
   }
 

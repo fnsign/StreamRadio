@@ -201,6 +201,7 @@
   border-radius: 999px;
   background: var(--background-secondary);
   box-shadow: none;
+  transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease;
 }
 
 .streamradio-pomodoro-visibility-toggle:hover {
@@ -226,7 +227,7 @@
   transform: translateY(0) scale(1);
   transform-origin: top center;
   visibility: visible;
-  transition: opacity 420ms ease, transform 420ms ease, max-height 460ms ease, margin-top 460ms ease, visibility 0s linear 0s;
+  transition: opacity 520ms cubic-bezier(0.22, 1, 0.36, 1), transform 520ms cubic-bezier(0.22, 1, 0.36, 1), max-height 560ms cubic-bezier(0.22, 1, 0.36, 1), margin-top 560ms cubic-bezier(0.22, 1, 0.36, 1), visibility 0s linear 0s;
 }
 
 .streamradio-pomodoro.is-hidden {
@@ -236,7 +237,7 @@
   pointer-events: none;
   transform: translateY(-6px) scale(0.985);
   visibility: hidden;
-  transition: opacity 420ms ease, transform 420ms ease, max-height 460ms ease, margin-top 460ms ease, visibility 0s linear 460ms;
+  transition: opacity 520ms cubic-bezier(0.22, 1, 0.36, 1), transform 520ms cubic-bezier(0.22, 1, 0.36, 1), max-height 560ms cubic-bezier(0.22, 1, 0.36, 1), margin-top 560ms cubic-bezier(0.22, 1, 0.36, 1), visibility 0s linear 560ms;
 }
 
 .streamradio-pomodoro-dial {
@@ -244,7 +245,14 @@
   width: min(100%, 244px);
   aspect-ratio: 1;
   opacity: var(--streamradio-pomodoro-opacity);
-  transition: opacity 240ms ease;
+  transform: scale(1);
+  transform-origin: top center;
+  transition: opacity 320ms ease, transform 520ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.streamradio-pomodoro.is-hidden .streamradio-pomodoro-dial {
+  opacity: 0;
+  transform: scale(0.96);
 }
 
 .streamradio-pomodoro-ring {
@@ -428,14 +436,20 @@
   margin-bottom: var(--size-4-3);
 }
 
-.streamradio-save-button {
+button.streamradio-save-button,
+button.streamradio-save-button:focus,
+button.streamradio-save-button:focus-visible {
   color: var(--text-on-accent);
   background-color: var(--background-modifier-error);
+  border-color: var(--background-modifier-error);
+  box-shadow: none;
 }
 
-.streamradio-save-button:hover {
+button.streamradio-save-button:hover,
+button.streamradio-save-button:active {
   color: var(--text-on-accent);
   background-color: var(--background-modifier-error-hover);
+  border-color: var(--background-modifier-error-hover);
 }
 
 .streamradio-results {

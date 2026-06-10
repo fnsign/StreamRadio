@@ -1,5 +1,25 @@
 # StreamRadio Release Notes
 
+## Version 1.2.1
+
+### Added
+
+- Added a mute toggle on the player volume control that restores the previous volume when unmuted.
+- Added HTTP HEAD validation for station icons with automatic fallback to the default StreamRadio icon.
+- Added reset buttons for editable Pomodoro settings so durations, interval counts, colors, and dim factor can be restored to their defaults quickly.
+
+### Changed
+
+- Countdown beeps now temporarily duck radio playback volume during the last 10 seconds of a focus interval or break, then restore it automatically after the warning and completion beeps finish.
+- Station details are now shown in a hover popover on the station icon instead of under the station name.
+- Pomodoro focus markers now pulse only while a focus interval is actively running.
+- Pomodoro dim and visibility toolbar buttons now persist their state across restarts and use larger controls for better recognition.
+
+### Fixed
+
+- Fixed unavailable station logos being shown inconsistently across the player, favorites, search results, and station picker.
+- Improved audibility of Pomodoro warning and completion beeps while radio playback is active.
+
 ## Version 1.2.0
 
 ### Added

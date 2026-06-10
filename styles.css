@@ -77,6 +77,8 @@
 }
 
 .streamradio-station-meta,
+.streamradio-player-station-meta,
+.streamradio-now-playing,
 .streamradio-timer-label,
 .streamradio-page-label {
   color: var(--text-muted);
@@ -117,6 +119,23 @@
 .streamradio-station-logo {
   object-fit: contain;
   background: var(--background-secondary);
+}
+
+.streamradio-now-playing {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.streamradio-now-playing.is-overflowing {
+  mask-image: linear-gradient(to right, transparent, black 14px, black calc(100% - 14px), transparent);
+}
+
+.streamradio-now-playing-text {
+  display: inline-block;
+  min-width: 100%;
+  will-change: transform;
 }
 
 .streamradio-player-logo {

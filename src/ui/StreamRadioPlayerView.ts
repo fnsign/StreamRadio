@@ -8,6 +8,8 @@ import { SleepTimerModal } from './SleepTimerModal';
 import { StationPickerModal } from './StationPickerModal';
 
 export class StreamRadioPlayerView extends ItemView {
+  private cancelMetadataScroll: (() => void) | null = null;
+
   constructor(leaf: WorkspaceLeaf, private plugin: StreamRadioPluginApi) {
     super(leaf);
   }
@@ -26,6 +28,11 @@ export class StreamRadioPlayerView extends ItemView {
 
   async onOpen(): Promise<void> {
     this.render();
+  }
+
+  async onClose(): Promise<void> {
+    this.cancelMetadataScroll?.();
+    this.cancelMetadataScroll = null;
   }
 
   renderPomodoroOnly(): void {
@@ -72,6 +79,9 @@ export class StreamRadioPlayerView extends ItemView {
   }
 
   render(): void {
+    this.cancelMetadataScroll?.();
+    this.cancelMetadataScroll = null;
+
     const container = this.containerEl.children[1] as HTMLElement;
     container.empty();
     container.addClass('streamradio-player');
@@ -91,6 +101,10 @@ export class StreamRadioPlayerView extends ItemView {
 
     const details = header.createDiv({ cls: 'streamradio-player-details' });
     details.createDiv({ cls: 'streamradio-player-title', text: station.name });
+    details.createDiv({ cls: 'streamradio-player-station-meta', text: `${stationFormat(station)} · ${bitrateLabel(station.bitrate)}` });
+    const metadataLine = details.createDiv({ cls: 'streamradio-now-playing', attr: { 'aria-label': 'Current track metadata' } });
+    metadataLine.createSpan({ cls: 'streamradio-now-playing-text', text: this.plugin.getMetadataLabel() });
+    this.setupMetadataScroller(metadataLine);
 
     const controls = container.createDiv({ cls: 'streamradio-controls' });
     const previousButton = controls.createEl('button', { cls: 'clickable-icon streamradio-control-button', attr: { type: 'button', 'aria-label': 'Previous station' } });
@@ -173,6 +187,72 @@ export class StreamRadioPlayerView extends ItemView {
   private renderSelectionButton(container: HTMLElement): void {
     const button = container.createEl('button', { cls: 'mod-cta streamradio-wide-button', text: 'Select station', attr: { type: 'button' } });
     button.addEventListener('click', () => new StationPickerModal(this.app, this.plugin).open());
+  }
+
+  private setupMetadataScroller(container: HTMLElement): void {
+    const textEl = container.querySelector<HTMLElement>('.streamradio-now-playing-text');
+    if (!textEl) {
+      return;
+    }
+
+    let timeoutIds: number[] = [];
+    let animationFrameId = 0;
+    let isCancelled = false;
+
+    const clearTimers = () => {
+      timeoutIds.forEach((timeoutId) => window.clearTimeout(timeoutId));
+      timeoutIds = [];
+      if (animationFrameId) {
+        window.cancelAnimationFrame(animationFrameId);
+        animationFrameId = 0;
+      }
+      textEl.style.transition = '';
+      textEl.style.transform = '';
+    };
+
+    this.cancelMetadataScroll = () => {
+      isCancelled = true;
+      clearTimers();
+    };
+
+    animationFrameId = window.requestAnimationFrame(() => {
+      animationFrameId = 0;
+      const overflowDistance = Math.max(0, textEl.scrollWidth - container.clientWidth);
+      if (overflowDistance <= 0 || isCancelled) {
+        return;
+      }
+
+      container.addClass('is-overflowing');
+      const scrollDurationMs = Math.max(4000, Math.min(18000, overflowDistance * 45));
+
+      const schedule = (callback: () => void, delayMs: number) => {
+        const timeoutId = window.setTimeout(() => {
+          timeoutIds = timeoutIds.filter((id) => id !== timeoutId);
+          callback();
+        }, delayMs);
+        timeoutIds.push(timeoutId);
+      };
+
+      const scrollLeft = () => {
+        if (isCancelled) {
+          return;
+        }
+        textEl.style.transition = `transform ${scrollDurationMs}ms linear`;
+        textEl.style.transform = `translateX(-${overflowDistance}px)`;
+        schedule(scrollRight, scrollDurationMs + 3000);
+      };
+
+      const scrollRight = () => {
+        if (isCancelled) {
+          return;
+        }
+        textEl.style.transition = `transform ${scrollDurationMs}ms linear`;
+        textEl.style.transform = 'translateX(0)';
+        schedule(scrollLeft, scrollDurationMs + 3000);
+      };
+
+      scrollLeft();
+    });
   }
 
   private renderPomodoroTools(container: HTMLElement): void {

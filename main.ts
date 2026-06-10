@@ -41,6 +41,8 @@ interface StreamRadioSettings {
   favorites: FavoriteStation[];
   activeStationId: string;
   volume: number;
+  muted: boolean;
+  lastVolume: number;
   pomodoroEnabled: boolean;
   pomodoroReducedDistractionEnabled: boolean;
   pomodoroDimFactor: number;
@@ -52,6 +54,8 @@ interface StreamRadioSettings {
   pomodoroLongBreakMinutes: number;
   pomodoroLongBreakColor: string;
   pomodoroLongBreakEvery: number;
+  pomodoroHidden: boolean;
+  pomodoroManualDimEnabled: boolean;
 }
 
 interface PomodoroSessionState {
@@ -100,6 +104,13 @@ interface SearchFilters {
   tag: string;
 }
 
+interface StationLogoOptions {
+  imageClass: string;
+  fallbackClass: string;
+  wrapperClass: string;
+  loading?: 'lazy' | 'eager';
+}
+
 interface ObsidianSettingsWindow {
   open(): void;
   openTabById(id: string): void;
@@ -114,6 +125,8 @@ const DEFAULT_SETTINGS: StreamRadioSettings = {
   favorites: [],
   activeStationId: '',
   volume: 1,
+  muted: false,
+  lastVolume: 1,
   pomodoroEnabled: true,
   pomodoroReducedDistractionEnabled: true,
   pomodoroDimFactor: 10,
@@ -125,6 +138,8 @@ const DEFAULT_SETTINGS: StreamRadioSettings = {
   pomodoroLongBreakMinutes: 20,
   pomodoroLongBreakColor: DEFAULT_POMODORO_LONG_BREAK_COLOR,
   pomodoroLongBreakEvery: 4,
+  pomodoroHidden: false,
+  pomodoroManualDimEnabled: false,
 };
 
 function toFavoriteStation(station: RadioBrowserStation): FavoriteStation {
@@ -292,9 +307,12 @@ export default class StreamRadioPlugin extends Plugin {
   private pomodoroBreakWarningSecond = 0;
   private pomodoroBeepTimeoutIds: number[] = [];
   private beepAudioContext: AudioContext | null = null;
-  private pomodoroHidden = false;
-  private pomodoroManualDimEnabled = false;
   private pomodoroAutoDimSuppressed = false;
+  private stationIconAvailability = new Map<string, Promise<string | null>>();
+  private volumeFadeIntervalId: number | null = null;
+  private volumeFadeMultiplier = 1;
+  private volumeFadeToken = 0;
+  private isPomodoroVolumeDucked = false;
 
   async onload(): Promise<void> {
     await this.loadSettings();
@@ -321,6 +339,7 @@ export default class StreamRadioPlugin extends Plugin {
     this.clearSleepTimer();
     this.clearPomodoroTimer();
     this.clearPomodoroBeeps();
+    this.clearVolumeFade();
     void this.beepAudioContext?.close();
   }
 
@@ -331,6 +350,11 @@ export default class StreamRadioPlugin extends Plugin {
     this.settings.favorites = this.settings.favorites
       .filter((station) => station.stationuuid && station.streamUrl);
     this.settings.volume = clampVolume(this.settings.volume ?? DEFAULT_SETTINGS.volume);
+    this.settings.muted = this.settings.muted ?? DEFAULT_SETTINGS.muted;
+    this.settings.lastVolume = clampVolume(this.settings.lastVolume ?? this.settings.volume ?? DEFAULT_SETTINGS.lastVolume);
+    if (this.settings.lastVolume <= 0) {
+      this.settings.lastVolume = DEFAULT_SETTINGS.lastVolume;
+    }
     this.settings.pomodoroEnabled = this.settings.pomodoroEnabled ?? DEFAULT_SETTINGS.pomodoroEnabled;
     this.settings.pomodoroReducedDistractionEnabled = this.settings.pomodoroReducedDistractionEnabled ?? DEFAULT_SETTINGS.pomodoroReducedDistractionEnabled;
     this.settings.pomodoroDimFactor = clampPercentage(this.settings.pomodoroDimFactor, DEFAULT_SETTINGS.pomodoroDimFactor);
@@ -344,6 +368,8 @@ export default class StreamRadioPlugin extends Plugin {
     this.settings.pomodoroLongBreakMinutes = clampInteger(this.settings.pomodoroLongBreakMinutes, DEFAULT_SETTINGS.pomodoroLongBreakMinutes, 1, 240);
     this.settings.pomodoroLongBreakColor = sanitizeColor(this.settings.pomodoroLongBreakColor, DEFAULT_SETTINGS.pomodoroLongBreakColor);
     this.settings.pomodoroLongBreakEvery = clampInteger(this.settings.pomodoroLongBreakEvery, DEFAULT_SETTINGS.pomodoroLongBreakEvery, 1, 8);
+    this.settings.pomodoroHidden = this.settings.pomodoroHidden ?? DEFAULT_SETTINGS.pomodoroHidden;
+    this.settings.pomodoroManualDimEnabled = this.settings.pomodoroManualDimEnabled ?? DEFAULT_SETTINGS.pomodoroManualDimEnabled;
   }
 
   async saveSettings(): Promise<void> {
@@ -357,7 +383,7 @@ export default class StreamRadioPlugin extends Plugin {
     this.syncPomodoroSessionWithSettings();
 
     if (!this.settings.pomodoroEnabled) {
-      this.pomodoroHidden = false;
+      this.settings.pomodoroHidden = false;
       this.resetPomodoro(false);
     }
 
@@ -389,11 +415,63 @@ export default class StreamRadioPlugin extends Plugin {
     return clampVolume(this.settings.volume);
   }
 
-  async setVolume(volume: number, persist = false): Promise<void> {
-    this.settings.volume = clampVolume(volume);
-    if (this.audio) {
-      this.audio.volume = this.settings.volume;
+  getDisplayedVolume(): number {
+    return this.settings.muted ? 0 : this.getVolume();
+  }
+
+  getIsMuted(): boolean {
+    return this.settings.muted;
+  }
+
+  getVolumeIconName(): string {
+    if (this.settings.muted || this.getDisplayedVolume() === 0) {
+      return 'volume-x';
     }
+
+    return this.getVolume() <= 0.5 ? 'volume-1' : 'volume-2';
+  }
+
+  async setVolume(volume: number, persist = false): Promise<void> {
+    const nextVolume = clampVolume(volume);
+    const previousMuted = this.settings.muted;
+
+    if (nextVolume <= 0) {
+      if (this.settings.volume > 0) {
+        this.settings.lastVolume = this.settings.volume;
+      }
+      this.settings.muted = true;
+    } else {
+      this.settings.volume = nextVolume;
+      this.settings.lastVolume = nextVolume;
+      this.settings.muted = false;
+    }
+
+    this.applyAudioVolume();
+
+    if (previousMuted !== this.settings.muted) {
+      this.refreshPlayerViews();
+    }
+
+    if (persist) {
+      await this.saveSettings();
+    }
+  }
+
+  async toggleMute(persist = true): Promise<void> {
+    if (this.settings.muted) {
+      const restoredVolume = clampVolume(this.settings.lastVolume || this.settings.volume || DEFAULT_SETTINGS.lastVolume);
+      this.settings.volume = restoredVolume > 0 ? restoredVolume : DEFAULT_SETTINGS.lastVolume;
+      this.settings.lastVolume = this.settings.volume;
+      this.settings.muted = false;
+    } else {
+      if (this.settings.volume > 0) {
+        this.settings.lastVolume = this.settings.volume;
+      }
+      this.settings.muted = true;
+    }
+
+    this.applyAudioVolume();
+    this.refreshPlayerViews();
 
     if (persist) {
       await this.saveSettings();
@@ -412,20 +490,16 @@ export default class StreamRadioPlugin extends Plugin {
   }
 
   getIsPomodoroHidden(): boolean {
-    return this.pomodoroHidden;
+    return this.settings.pomodoroHidden;
   }
 
   togglePomodoroVisibility(): void {
-    this.pomodoroHidden = !this.pomodoroHidden;
-    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_STREAMRADIO)) {
-      if (leaf.view instanceof StreamRadioPlayerView) {
-        leaf.view.updatePomodoroToolbar();
-      }
-    }
+    this.settings.pomodoroHidden = !this.settings.pomodoroHidden;
+    void this.saveSettings();
   }
 
   getIsPomodoroDisplayDimmed(session = this.getPomodoroSession()): boolean {
-    return this.pomodoroManualDimEnabled || (this.shouldAutoDimPomodoro(session) && !this.pomodoroAutoDimSuppressed);
+    return this.settings.pomodoroManualDimEnabled || (this.shouldAutoDimPomodoro(session) && !this.pomodoroAutoDimSuppressed);
   }
 
   togglePomodoroDisplayDim(): void {
@@ -434,20 +508,16 @@ export default class StreamRadioPlugin extends Plugin {
     const isDisplayDimmed = this.getIsPomodoroDisplayDimmed(session);
 
     if (isDisplayDimmed) {
-      this.pomodoroManualDimEnabled = false;
+      this.settings.pomodoroManualDimEnabled = false;
       this.pomodoroAutoDimSuppressed = isAutoDimmed;
     } else if (isAutoDimmed) {
       this.pomodoroAutoDimSuppressed = false;
     } else {
-      this.pomodoroManualDimEnabled = true;
+      this.settings.pomodoroManualDimEnabled = true;
       this.pomodoroAutoDimSuppressed = false;
     }
 
-    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_STREAMRADIO)) {
-      if (leaf.view instanceof StreamRadioPlayerView) {
-        leaf.view.updatePomodoroToolbar();
-      }
-    }
+    void this.saveSettings();
   }
 
   private shouldAutoDimPomodoro(session: PomodoroSessionState): boolean {
@@ -535,7 +605,7 @@ export default class StreamRadioPlugin extends Plugin {
 
     const audio = new Audio(station.streamUrl);
     audio.preload = 'none';
-    audio.volume = this.getVolume();
+    audio.volume = this.getEffectiveVolume();
     audio.addEventListener('ended', () => {
       this.isPlaying = false;
       this.refreshPlayerViews();
@@ -583,6 +653,7 @@ export default class StreamRadioPlugin extends Plugin {
   }
 
   stopPlayback(): void {
+    this.cancelPomodoroVolumeDuck(false);
     this.stopAudioElement();
     this.isPlaying = false;
     this.refreshPlayerViews();
@@ -635,6 +706,7 @@ export default class StreamRadioPlugin extends Plugin {
       this.startPomodoroTimer();
     } else {
       this.clearPomodoroTimer();
+      this.cancelPomodoroVolumeDuck();
     }
 
     this.refreshPomodoroViews();
@@ -654,6 +726,7 @@ export default class StreamRadioPlugin extends Plugin {
   skipToNextPomodoroInterval(): void {
     const session = this.getPomodoroSession();
     const nextIndex = Math.min(this.settings.pomodoroIntervals, Math.max(session.currentIntervalIndex + 1, session.completedIntervals));
+    this.cancelPomodoroVolumeDuck();
 
     if (nextIndex >= this.settings.pomodoroIntervals) {
       this.completePomodoroSession();
@@ -673,6 +746,7 @@ export default class StreamRadioPlugin extends Plugin {
   resetPomodoro(refresh = true): void {
     this.clearPomodoroTimer();
     this.clearPomodoroBeeps();
+    this.cancelPomodoroVolumeDuck(false);
     this.pomodoroBreakWarningSecond = 0;
     this.pomodoroSession = this.createPomodoroSession('focus', 0, 0, false);
 
@@ -744,6 +818,9 @@ export default class StreamRadioPlugin extends Plugin {
 
     if (session.remainingSeconds <= POMODORO_WARNING_COUNTDOWN_SECONDS && session.remainingSeconds > 0 && this.pomodoroBreakWarningSecond !== session.remainingSeconds) {
       this.pomodoroBreakWarningSecond = session.remainingSeconds;
+      if (session.remainingSeconds === POMODORO_WARNING_COUNTDOWN_SECONDS) {
+        this.beginPomodoroVolumeDuck();
+      }
       this.playBeep();
     }
 
@@ -775,6 +852,7 @@ export default class StreamRadioPlugin extends Plugin {
       return;
     }
 
+    this.playPomodoroCompletionBeeps();
     this.pomodoroSession = this.createPomodoroSession('focus', session.completedIntervals, session.completedIntervals, true);
   }
 
@@ -789,6 +867,7 @@ export default class StreamRadioPlugin extends Plugin {
       durationSeconds: secondsFromMinutes(this.settings.pomodoroFocusMinutes),
       isRunning: false,
     };
+    this.cancelPomodoroVolumeDuck();
     new Notice('Pomodoro session complete.');
   }
 
@@ -834,12 +913,18 @@ export default class StreamRadioPlugin extends Plugin {
 
   private playPomodoroCompletionBeeps(): void {
     this.clearPomodoroBeeps();
+    this.holdPomodoroVolumeDuck();
     [0, 250, 500].forEach((delay) => {
       const timeoutId = window.setTimeout(() => {
         this.playBeep();
       }, delay);
       this.pomodoroBeepTimeoutIds.push(timeoutId);
     });
+
+    const restoreId = window.setTimeout(() => {
+      this.cancelPomodoroVolumeDuck();
+    }, 700);
+    this.pomodoroBeepTimeoutIds.push(restoreId);
   }
 
   private clearPomodoroBeeps(): void {
@@ -877,6 +962,134 @@ export default class StreamRadioPlugin extends Plugin {
       oscillator.disconnect();
       gain.disconnect();
     });
+  }
+
+  createStationLogo(parent: HTMLElement, station: Pick<FavoriteStation, 'favicon' | 'name'>, options: StationLogoOptions): HTMLElement {
+    const wrapper = parent.createDiv({ cls: options.wrapperClass });
+    const content = wrapper.createDiv({ cls: 'streamradio-station-logo-content' });
+    this.renderFallbackStationLogo(content, options.fallbackClass);
+
+    if (!station.favicon) {
+      return wrapper;
+    }
+
+    const requestedUrl = station.favicon;
+    void this.resolveStationIconUrl(requestedUrl).then((resolvedUrl) => {
+      if (!wrapper.isConnected || station.favicon !== requestedUrl || !resolvedUrl) {
+        return;
+      }
+
+      content.empty();
+      content.createEl('img', {
+        cls: options.imageClass,
+        attr: {
+          src: resolvedUrl,
+          alt: '',
+          loading: options.loading ?? 'lazy',
+        },
+      });
+    });
+
+    return wrapper;
+  }
+
+  private renderFallbackStationLogo(parent: HTMLElement, className: string): void {
+    parent.empty();
+    const fallback = parent.createDiv({ cls: className });
+    setIcon(fallback, 'radio');
+  }
+
+  private async resolveStationIconUrl(favicon: string): Promise<string | null> {
+    const normalizedUrl = favicon.trim();
+    if (!normalizedUrl) {
+      return null;
+    }
+
+    let pending = this.stationIconAvailability.get(normalizedUrl);
+    if (!pending) {
+      pending = requestUrl({
+        url: normalizedUrl,
+        method: 'HEAD',
+        headers: {
+          'User-Agent': 'StreamRadio/1.2.0',
+        },
+      })
+        .then((response) => (response.status >= 200 && response.status < 400 ? normalizedUrl : null))
+        .catch(() => null);
+      this.stationIconAvailability.set(normalizedUrl, pending);
+    }
+
+    return pending;
+  }
+
+  private getEffectiveVolume(): number {
+    if (this.settings.muted) {
+      return 0;
+    }
+
+    return clampVolume(this.settings.volume * this.volumeFadeMultiplier);
+  }
+
+  private applyAudioVolume(): void {
+    if (this.audio) {
+      this.audio.volume = this.getEffectiveVolume();
+    }
+  }
+
+  private beginPomodoroVolumeDuck(): void {
+    this.isPomodoroVolumeDucked = true;
+    this.startVolumeFade(0.15, 5000);
+  }
+
+  private holdPomodoroVolumeDuck(): void {
+    this.isPomodoroVolumeDucked = true;
+    this.startVolumeFade(0.15, 0);
+  }
+
+  private cancelPomodoroVolumeDuck(animated = true): void {
+    if (!this.isPomodoroVolumeDucked && this.volumeFadeMultiplier === 1) {
+      return;
+    }
+
+    this.isPomodoroVolumeDucked = false;
+    this.startVolumeFade(1, animated ? 1000 : 0);
+  }
+
+  private startVolumeFade(targetMultiplier: number, durationMs: number): void {
+    this.volumeFadeToken += 1;
+    const token = this.volumeFadeToken;
+    this.clearVolumeFade();
+
+    const startMultiplier = this.volumeFadeMultiplier;
+    if (durationMs <= 0 || Math.abs(startMultiplier - targetMultiplier) < 0.001) {
+      this.volumeFadeMultiplier = targetMultiplier;
+      this.applyAudioVolume();
+      return;
+    }
+
+    const startedAt = Date.now();
+    this.volumeFadeIntervalId = window.setInterval(() => {
+      if (token !== this.volumeFadeToken) {
+        this.clearVolumeFade();
+        return;
+      }
+
+      const progress = Math.min(1, (Date.now() - startedAt) / durationMs);
+      this.volumeFadeMultiplier = startMultiplier + (targetMultiplier - startMultiplier) * progress;
+      this.applyAudioVolume();
+
+      if (progress >= 1) {
+        this.clearVolumeFade();
+      }
+    }, 50);
+  }
+
+  private clearVolumeFade(): void {
+    if (this.volumeFadeIntervalId !== null) {
+      window.clearInterval(this.volumeFadeIntervalId);
+    }
+
+    this.volumeFadeIntervalId = null;
   }
 }
 
@@ -987,55 +1200,89 @@ class StreamRadioSettingTab extends PluginSettingTab {
     this.addNumberSetting(containerEl, 'Long break after intervals', 'Number of completed intervals before a long break starts.', 'pomodoroLongBreakEvery', 1, 8);
   }
 
+  private addResetButton(setting: Setting, tooltip: string, onReset: () => void): void {
+    setting.addExtraButton((button) => {
+        button.extraSettingsEl.setAttr('aria-label', tooltip);
+        button.extraSettingsEl.setAttr('title', tooltip);
+      button
+        .setIcon('rotate-ccw')
+        .onClick(() => {
+          onReset();
+        });
+    });
+  }
+
   private addNumberSetting(containerEl: HTMLElement, name: string, description: string, key: NumberSettingKey, min: number, max: number): void {
-    new Setting(containerEl)
+    const fallback = Number(DEFAULT_SETTINGS[key]);
+    const setting = new Setting(containerEl)
       .setName(name)
-      .setDesc(description)
-      .addText((text) => {
-        const saveValue = async () => {
-          const parsed = Number(text.getValue());
-          if (!Number.isFinite(parsed)) {
-            text.setValue(String(this.plugin.settings[key]));
-            return;
-          }
+      .setDesc(description);
+    let textComponent: TextComponent | null = null;
 
-          const fallback = Number(DEFAULT_SETTINGS[key]);
-          this.plugin.settings[key] = clampInteger(parsed, fallback, min, max);
-          await this.plugin.saveSettings();
+    setting.addText((text) => {
+      textComponent = text;
+      const saveValue = async () => {
+        const parsed = Number(text.getValue());
+        if (!Number.isFinite(parsed)) {
           text.setValue(String(this.plugin.settings[key]));
-        };
+          return;
+        }
 
+        this.plugin.settings[key] = clampInteger(parsed, fallback, min, max);
+        await this.plugin.saveSettings();
         text.setValue(String(this.plugin.settings[key]));
-        text.inputEl.setAttr('type', 'number');
-        text.inputEl.setAttr('min', String(min));
-        text.inputEl.setAttr('max', String(max));
-        text.inputEl.setAttr('step', '1');
-        text.inputEl.addClass('streamradio-number-input');
-        text.inputEl.addEventListener('change', () => {
-          void saveValue();
-        });
-        text.inputEl.addEventListener('keydown', (event) => {
-          if (event.key === 'Enter') {
-            event.preventDefault();
-            text.inputEl.blur();
-            void saveValue();
-          }
-        });
+      };
+
+      text.setValue(String(this.plugin.settings[key]));
+      text.inputEl.setAttr('type', 'number');
+      text.inputEl.setAttr('min', String(min));
+      text.inputEl.setAttr('max', String(max));
+      text.inputEl.setAttr('step', '1');
+      text.inputEl.addClass('streamradio-number-input');
+      text.inputEl.addEventListener('change', () => {
+        void saveValue();
       });
+      text.inputEl.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          text.inputEl.blur();
+          void saveValue();
+        }
+      });
+    });
+
+    this.addResetButton(setting, `Reset ${name.toLowerCase()} to default`, () => {
+      this.plugin.settings[key] = clampInteger(fallback, fallback, min, max);
+      void this.plugin.saveSettings().then(() => {
+        textComponent?.setValue(String(this.plugin.settings[key]));
+      });
+    });
   }
 
   private addColorSetting(containerEl: HTMLElement, name: string, description: string, key: ColorSettingKey, fallback: string, isNested = false): void {
     const setting = new Setting(containerEl)
       .setName(name)
-      .setDesc(description)
-      .addColorPicker((picker) => {
-        picker
-          .setValue(String(this.plugin.settings[key] || fallback))
-          .onChange((value) => {
-            this.plugin.settings[key] = sanitizeColor(value, fallback);
-            void this.plugin.saveSettings();
-          });
+      .setDesc(description);
+    let pickerComponent: { setValue: (value: string) => unknown } | null = null;
+
+    setting.addColorPicker((picker) => {
+      pickerComponent = picker;
+      picker
+        .setValue(String(this.plugin.settings[key] || fallback))
+        .onChange((value) => {
+          this.plugin.settings[key] = sanitizeColor(value, fallback);
+          void this.plugin.saveSettings();
+        });
+    });
+
+    this.addResetButton(setting, `Reset ${name.toLowerCase()} to default`, () => {
+      this.plugin.settings[key] = sanitizeColor(fallback, fallback);
+      void this.plugin.saveSettings().then(() => {
+        if (pickerComponent) {
+          pickerComponent.setValue(this.plugin.settings[key]);
+        }
       });
+    });
 
     if (isNested) {
       setting.settingEl.addClass('streamradio-nested-setting');
@@ -1065,8 +1312,10 @@ class StreamRadioSettingTab extends PluginSettingTab {
       .setName(`Dim factor (${this.plugin.settings.pomodoroDimFactor}%)`)
       .setDesc('Display brightness while reduced distraction mode is active.');
     dimSetting.settingEl.addClass('streamradio-nested-setting');
+    let sliderInput: HTMLInputElement | null = null;
 
     dimSetting.addSlider((slider) => {
+      sliderInput = slider.sliderEl;
       slider
         .setLimits(5, 100, 5)
         .setValue(this.plugin.settings.pomodoroDimFactor)
@@ -1076,6 +1325,16 @@ class StreamRadioSettingTab extends PluginSettingTab {
           dimSetting.setName(`Dim factor (${this.plugin.settings.pomodoroDimFactor}%)`);
           void this.plugin.saveSettings();
         });
+    });
+
+    this.addResetButton(dimSetting, 'Reset dim factor to default', () => {
+      this.plugin.settings.pomodoroDimFactor = clampPercentage(DEFAULT_SETTINGS.pomodoroDimFactor, DEFAULT_SETTINGS.pomodoroDimFactor);
+      dimSetting.setName(`Dim factor (${this.plugin.settings.pomodoroDimFactor}%)`);
+      void this.plugin.saveSettings().then(() => {
+        if (sliderInput) {
+          sliderInput.value = String(this.plugin.settings.pomodoroDimFactor);
+        }
+      });
     });
   }
 
@@ -1163,19 +1422,11 @@ class StreamRadioSettingTab extends PluginSettingTab {
   }
 
   private createStationLogo(parent: HTMLElement, station: FavoriteStation): void {
-    if (!station.favicon) {
-      const fallback = parent.createDiv({ cls: 'streamradio-logo-fallback' });
-      setIcon(fallback, 'radio');
-      return;
-    }
-
-    parent.createEl('img', {
-      cls: 'streamradio-station-logo',
-      attr: {
-        src: station.favicon,
-        alt: '',
-        loading: 'lazy',
-      },
+    this.plugin.createStationLogo(parent, station, {
+      wrapperClass: 'streamradio-station-logo-slot',
+      imageClass: 'streamradio-station-logo',
+      fallbackClass: 'streamradio-station-logo streamradio-logo-fallback',
+      loading: 'lazy',
     });
   }
 }
@@ -1264,9 +1515,6 @@ class StreamRadioPlayerView extends ItemView {
 
     const details = header.createDiv({ cls: 'streamradio-player-details' });
     details.createDiv({ cls: 'streamradio-player-title', text: station.name });
-    const infoParts = [station.country, station.language].filter(Boolean).join(' · ');
-    details.createDiv({ cls: 'streamradio-station-meta', text: infoParts || 'Station information unavailable' });
-    details.createDiv({ cls: 'streamradio-station-meta', text: `${stationFormat(station)} · ${bitrateLabel(station.bitrate)}` });
 
     const controls = container.createDiv({ cls: 'streamradio-controls' });
     const previousButton = controls.createEl('button', { cls: 'clickable-icon streamradio-control-button', attr: { type: 'button', 'aria-label': 'Previous station' } });
@@ -1306,15 +1554,26 @@ class StreamRadioPlayerView extends ItemView {
     });
 
     const volumeControl = container.createDiv({ cls: 'streamradio-volume-control' });
-    const volumeIcon = volumeControl.createSpan({ cls: 'streamradio-volume-icon' });
-    setIcon(volumeIcon, 'volume-2');
+    const volumeButton = volumeControl.createEl('button', {
+      cls: `clickable-icon streamradio-volume-icon-button${this.plugin.getIsMuted() ? ' is-muted' : ''}`,
+      attr: {
+        type: 'button',
+        'aria-label': this.plugin.getIsMuted() ? 'Unmute stream' : 'Mute stream',
+        'aria-pressed': String(this.plugin.getIsMuted()),
+      },
+    });
+    setIcon(volumeButton, this.plugin.getVolumeIconName());
+    volumeButton.addEventListener('click', () => {
+      void this.plugin.toggleMute();
+    });
+
     const volumeSlider = volumeControl.createEl('input', {
       attr: {
         type: 'range',
         min: '0',
         max: '1',
         step: '0.01',
-        value: String(this.plugin.getVolume()),
+        value: String(this.plugin.getDisplayedVolume()),
         'aria-label': 'Volume',
       },
     });
@@ -1398,18 +1657,26 @@ class StreamRadioPlayerView extends ItemView {
   }
 
   private createStationLogo(parent: HTMLElement, station: FavoriteStation): void {
-    if (!station.favicon) {
-      const fallback = parent.createDiv({ cls: 'streamradio-player-logo streamradio-logo-fallback' });
-      setIcon(fallback, 'radio');
-      return;
-    }
+    const wrapper = this.plugin.createStationLogo(parent, station, {
+      wrapperClass: 'streamradio-player-logo-slot streamradio-station-info-anchor',
+      imageClass: 'streamradio-player-logo',
+      fallbackClass: 'streamradio-player-logo streamradio-logo-fallback',
+      loading: 'eager',
+    });
+    wrapper.setAttr('tabindex', '0');
 
-    parent.createEl('img', {
-      cls: 'streamradio-player-logo',
-      attr: {
-        src: station.favicon,
-        alt: '',
-      },
+    const popover = wrapper.createDiv({ cls: 'streamradio-station-info-popover' });
+    const infoRows = [
+      ['Country', station.country || 'Unknown'],
+      ['Language', station.language || 'Unknown'],
+      ['Format', stationFormat(station)],
+      ['Bitrate', bitrateLabel(station.bitrate)],
+    ];
+
+    infoRows.forEach(([label, value]) => {
+      const row = popover.createDiv({ cls: 'streamradio-station-info-row' });
+      row.createSpan({ cls: 'streamradio-station-info-label', text: `${label}:` });
+      row.createSpan({ cls: 'streamradio-station-info-value', text: value });
     });
   }
 
@@ -1490,6 +1757,9 @@ class StreamRadioPlayerView extends ItemView {
       }
       if (index === session.currentIntervalIndex && session.completedIntervals < this.plugin.settings.pomodoroIntervals) {
         dot.addClass('is-active');
+        if (session.phase === 'focus' && session.isRunning) {
+          dot.addClass('is-pulsing');
+        }
       }
       dot.setAttr('aria-hidden', 'true');
 
@@ -1893,19 +2163,11 @@ class StationSearchModal extends Modal {
   }
 
   private createStationLogo(parent: HTMLElement, station: FavoriteStation): void {
-    if (!station.favicon) {
-      const fallback = parent.createDiv({ cls: 'streamradio-logo-fallback' });
-      setIcon(fallback, 'radio');
-      return;
-    }
-
-    parent.createEl('img', {
-      cls: 'streamradio-station-logo',
-      attr: {
-        src: station.favicon,
-        alt: '',
-        loading: 'lazy',
-      },
+    this.plugin.createStationLogo(parent, station, {
+      wrapperClass: 'streamradio-station-logo-slot',
+      imageClass: 'streamradio-station-logo',
+      fallbackClass: 'streamradio-station-logo streamradio-logo-fallback',
+      loading: 'lazy',
     });
   }
 }
@@ -1927,12 +2189,12 @@ class StationPickerModal extends Modal {
 
     for (const station of this.plugin.settings.favorites) {
       const button = this.contentEl.createEl('button', { cls: 'streamradio-picker-row', attr: { type: 'button' } });
-      if (station.favicon) {
-        button.createEl('img', { cls: 'streamradio-station-logo', attr: { src: station.favicon, alt: '' } });
-      } else {
-        const fallback = button.createDiv({ cls: 'streamradio-logo-fallback' });
-        setIcon(fallback, 'radio');
-      }
+      this.plugin.createStationLogo(button, station, {
+        wrapperClass: 'streamradio-station-logo-slot',
+        imageClass: 'streamradio-station-logo',
+        fallbackClass: 'streamradio-station-logo streamradio-logo-fallback',
+        loading: 'lazy',
+      });
 
       const text = button.createDiv({ cls: 'streamradio-result-text' });
       text.createDiv({ cls: 'streamradio-station-name', text: station.name });

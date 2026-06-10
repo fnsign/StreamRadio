@@ -77,6 +77,7 @@
 }
 
 .streamradio-station-meta,
+.streamradio-now-playing,
 .streamradio-timer-label,
 .streamradio-page-label {
   color: var(--text-muted);
@@ -117,6 +118,30 @@
 .streamradio-station-logo {
   object-fit: contain;
   background: var(--background-secondary);
+}
+
+.streamradio-now-playing {
+  --streamradio-now-playing-duration: 0ms;
+  --streamradio-now-playing-shift: 0;
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.streamradio-now-playing-text {
+  display: inline-block;
+  min-width: 100%;
+  transition: transform var(--streamradio-now-playing-duration) linear;
+  will-change: transform;
+}
+
+.streamradio-now-playing.is-scrolling-left .streamradio-now-playing-text {
+  transform: translateX(var(--streamradio-now-playing-shift));
+}
+
+.streamradio-now-playing.is-scrolling-right .streamradio-now-playing-text {
+  transform: translateX(0);
 }
 
 .streamradio-player-logo {
@@ -396,55 +421,6 @@
 
 .streamradio-pomodoro-dot.is-pulsing:not(.is-complete) {
   animation: streamradio-pomodoro-pulse 1.4s ease-in-out infinite;
-}
-
-.streamradio-station-info-anchor {
-  outline: none;
-}
-
-.streamradio-station-info-popover {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
-  z-index: 10;
-  display: grid;
-  gap: 4px;
-  min-width: 220px;
-  padding: 10px 12px;
-  color: var(--text-normal);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: var(--radius-s);
-  background: var(--background-primary);
-  box-shadow: var(--shadow-s);
-  text-align: left;
-  opacity: 0;
-  pointer-events: none;
-  transform: translate(0, -4px);
-  transition: opacity 140ms ease, transform 140ms ease;
-}
-
-.streamradio-station-info-anchor:hover .streamradio-station-info-popover,
-.streamradio-station-info-anchor:focus-visible .streamradio-station-info-popover,
-.streamradio-station-info-anchor:focus-within .streamradio-station-info-popover {
-  opacity: 1;
-  transform: translate(0, 0);
-}
-
-.streamradio-station-info-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: flex-start;
-  gap: 10px;
-}
-
-.streamradio-station-info-label {
-  color: var(--text-muted);
-  font-size: var(--font-ui-smaller);
-}
-
-.streamradio-station-info-value {
-  font-size: var(--font-ui-smaller);
-  text-align: left;
 }
 
 .streamradio-pomodoro-separator {

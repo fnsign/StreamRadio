@@ -1,7 +1,6 @@
 import { ItemView, setIcon, WorkspaceLeaf } from 'obsidian';
 import { VIEW_TYPE_STREAMRADIO } from '../constants';
 import { formatPomodoroTime } from '../pomodoroUtils';
-import { bitrateLabel, stationFormat } from '../stationUtils';
 import type { FavoriteStation, PomodoroPhase, PomodoroSessionState } from '../types';
 import type { StreamRadioPluginApi } from './pluginTypes';
 import { SleepTimerModal } from './SleepTimerModal';
@@ -101,7 +100,6 @@ export class StreamRadioPlayerView extends ItemView {
 
     const details = header.createDiv({ cls: 'streamradio-player-details' });
     details.createDiv({ cls: 'streamradio-player-title', text: station.name });
-    details.createDiv({ cls: 'streamradio-player-station-meta', text: `${stationFormat(station)} · ${bitrateLabel(station.bitrate)}` });
     const metadataLine = details.createDiv({ cls: 'streamradio-now-playing', attr: { 'aria-label': 'Current track metadata' } });
     metadataLine.createSpan({ cls: 'streamradio-now-playing-text', text: this.plugin.getMetadataLabel() });
     this.setupMetadataScroller(metadataLine);
@@ -206,8 +204,11 @@ export class StreamRadioPlayerView extends ItemView {
         window.cancelAnimationFrame(animationFrameId);
         animationFrameId = 0;
       }
-      textEl.style.transition = '';
-      textEl.style.transform = '';
+      container.removeClass('is-overflowing', 'is-scrolling-left', 'is-scrolling-right');
+      container.setCssProps({
+        '--streamradio-now-playing-duration': '0ms',
+        '--streamradio-now-playing-shift': '0',
+      });
     };
 
     this.cancelMetadataScroll = () => {
@@ -224,6 +225,10 @@ export class StreamRadioPlayerView extends ItemView {
 
       container.addClass('is-overflowing');
       const scrollDurationMs = Math.max(4000, Math.min(18000, overflowDistance * 45));
+      container.setCssProps({
+        '--streamradio-now-playing-duration': `${scrollDurationMs}ms`,
+        '--streamradio-now-playing-shift': `-${overflowDistance}px`,
+      });
 
       const schedule = (callback: () => void, delayMs: number) => {
         const timeoutId = window.setTimeout(() => {
@@ -237,8 +242,8 @@ export class StreamRadioPlayerView extends ItemView {
         if (isCancelled) {
           return;
         }
-        textEl.style.transition = `transform ${scrollDurationMs}ms linear`;
-        textEl.style.transform = `translateX(-${overflowDistance}px)`;
+        container.removeClass('is-scrolling-right');
+        container.addClass('is-scrolling-left');
         schedule(scrollRight, scrollDurationMs + 3000);
       };
 
@@ -246,8 +251,8 @@ export class StreamRadioPlayerView extends ItemView {
         if (isCancelled) {
           return;
         }
-        textEl.style.transition = `transform ${scrollDurationMs}ms linear`;
-        textEl.style.transform = 'translateX(0)';
+        container.removeClass('is-scrolling-left');
+        container.addClass('is-scrolling-right');
         schedule(scrollLeft, scrollDurationMs + 3000);
       };
 
@@ -313,26 +318,11 @@ export class StreamRadioPlayerView extends ItemView {
   }
 
   private createStationLogo(parent: HTMLElement, station: FavoriteStation): void {
-    const wrapper = this.plugin.createStationLogo(parent, station, {
-      wrapperClass: 'streamradio-player-logo-slot streamradio-station-info-anchor',
+    this.plugin.createStationLogo(parent, station, {
+      wrapperClass: 'streamradio-player-logo-slot',
       imageClass: 'streamradio-player-logo',
       fallbackClass: 'streamradio-player-logo streamradio-logo-fallback',
       loading: 'eager',
-    });
-    wrapper.setAttr('tabindex', '0');
-
-    const popover = wrapper.createDiv({ cls: 'streamradio-station-info-popover' });
-    const infoRows = [
-      ['Country', station.country || 'Unknown'],
-      ['Language', station.language || 'Unknown'],
-      ['Format', stationFormat(station)],
-      ['Bitrate', bitrateLabel(station.bitrate)],
-    ];
-
-    infoRows.forEach(([label, value]) => {
-      const row = popover.createDiv({ cls: 'streamradio-station-info-row' });
-      row.createSpan({ cls: 'streamradio-station-info-label', text: `${label}:` });
-      row.createSpan({ cls: 'streamradio-station-info-value', text: value });
     });
   }
 

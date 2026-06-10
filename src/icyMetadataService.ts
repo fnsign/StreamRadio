@@ -15,7 +15,7 @@ export class IcyMetadataService {
   private request: http.ClientRequest | null = null;
   private response: http.IncomingMessage | null = null;
   private reader: StreamReader | null = null;
-  private retryTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  private retryTimeoutId: number | null = null;
   private streamUrl = '';
   private isStopped = true;
   private lastMetadataKey = '';
@@ -176,7 +176,7 @@ export class IcyMetadataService {
     }
 
     this.clearRetry();
-    this.retryTimeoutId = setTimeout(() => {
+    this.retryTimeoutId = window.setTimeout(() => {
       this.retryTimeoutId = null;
       this.connect(this.streamUrl, 0);
     }, delayMs);
@@ -184,7 +184,7 @@ export class IcyMetadataService {
 
   private clearRetry(): void {
     if (this.retryTimeoutId !== null) {
-      clearTimeout(this.retryTimeoutId);
+      window.clearTimeout(this.retryTimeoutId);
       this.retryTimeoutId = null;
     }
   }

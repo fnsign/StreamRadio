@@ -1,0 +1,44 @@
+import type { App, Plugin } from 'obsidian';
+import type { FavoriteStation, PomodoroSessionState, StationLogoOptions, StreamRadioSettings } from '../types';
+
+export interface StreamRadioPluginApi extends Plugin {
+  app: App;
+  manifest: Plugin['manifest'];
+  settings: StreamRadioSettings;
+  loadSettings(): Promise<void>;
+  saveSettings(): Promise<void>;
+  getCurrentStation(): FavoriteStation | null;
+  getIsPlaying(): boolean;
+  getSleepTimerLabel(): string;
+  getVolume(): number;
+  getDisplayedVolume(): number;
+  getIsMuted(): boolean;
+  getVolumeIconName(): string;
+  setVolume(volume: number, persist?: boolean): Promise<void>;
+  toggleMute(persist?: boolean): Promise<void>;
+  openSettingsTab(): void;
+  getIsPomodoroHidden(): boolean;
+  togglePomodoroVisibility(): void;
+  getIsPomodoroDisplayDimmed(session?: PomodoroSessionState): boolean;
+  togglePomodoroDisplayDim(): void;
+  activatePlayerView(): Promise<void>;
+  togglePlayback(): Promise<void>;
+  selectStation(station: FavoriteStation): Promise<void>;
+  playNextStation(): Promise<void>;
+  playPreviousStation(): Promise<void>;
+  playStation(station: FavoriteStation): Promise<void>;
+  pausePlayback(): void;
+  stopPlayback(): void;
+  startSleepTimer(minutes: number): void;
+  clearSleepTimer(): void;
+  getPomodoroSession(): PomodoroSessionState;
+  togglePomodoro(): void;
+  resetCurrentPomodoroInterval(): void;
+  skipToNextPomodoroInterval(): void;
+  resetPomodoro(refresh?: boolean): void;
+  saveFavorites(favorites: FavoriteStation[]): Promise<void>;
+  refreshPlayerViews(): void;
+  refreshPomodoroViews(): void;
+  refreshPomodoroDisplays(): void;
+  createStationLogo(parent: HTMLElement, station: Pick<FavoriteStation, 'favicon' | 'name'>, options: StationLogoOptions): HTMLElement;
+}

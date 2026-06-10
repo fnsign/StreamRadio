@@ -1,0 +1,13 @@
+export const VIEW_TYPE_STREAMRADIO = 'streamradio-player-view';
+export const RADIO_BROWSER_BASE_URL = 'https://all.api.radio-browser.info/json';
+export const SEARCH_PAGE_SIZE = 20;
+export const SEARCH_COUNT_LIMIT = 100000;
+export const TIMER_REFRESH_INTERVAL_MS = 30000;
+export const POMODORO_REFRESH_INTERVAL_MS = 1000;
+export const POMODORO_WARNING_COUNTDOWN_SECONDS = 10;
+export const POMODORO_DIM_DELAY_SECONDS = 10;
+export const POMODORO_RESTORE_BEFORE_END_SECONDS = 60;
+export const MAX_VISIBLE_TAGS = 6;
+export const LEGACY_DEFAULT_POMODORO_FOCUS_COLOR = '#7c3aed';
+export const DEFAULT_POMODORO_SHORT_BREAK_COLOR = '#003f88';
+export const DEFAULT_POMODORO_LONG_BREAK_COLOR = '#0b5d1e';

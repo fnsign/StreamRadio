@@ -281,6 +281,8 @@ export class StreamRadioSettingTab extends PluginSettingTab {
       const actions = row.createDiv({ cls: 'streamradio-row-actions' });
       const isActiveStationPlaying = this.plugin.getIsPlaying() && this.plugin.getCurrentStation()?.stationuuid === station.stationuuid;
       const playButton = actions.createEl('button', { cls: 'clickable-icon streamradio-icon-button', attr: { type: 'button', 'aria-label': isActiveStationPlaying ? `Stop ${station.name}` : `Play ${station.name}` } });
+      playButton.classList.toggle('is-active-playback', isActiveStationPlaying);
+      playButton.style.setProperty('--streamradio-active-control-color', this.plugin.settings.pomodoroTimerColor);
       setIcon(playButton, isActiveStationPlaying ? 'square' : 'play');
       playButton.addEventListener('click', () => {
         if (isActiveStationPlaying) {

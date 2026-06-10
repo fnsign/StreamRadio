@@ -6,7 +6,7 @@ export interface StreamRadioPluginApi extends Plugin {
   manifest: Plugin['manifest'];
   settings: StreamRadioSettings;
   loadSettings(): Promise<void>;
-  saveSettings(): Promise<void>;
+  saveSettings(refresh?: boolean): Promise<void>;
   getCurrentStation(): FavoriteStation | null;
   getIsPlaying(): boolean;
   getMetadataLabel(): string;
@@ -39,6 +39,8 @@ export interface StreamRadioPluginApi extends Plugin {
   resetPomodoro(refresh?: boolean): void;
   saveFavorites(favorites: FavoriteStation[]): Promise<void>;
   refreshPlayerViews(): void;
+  refreshPlayerPlaybackViews(): void;
+  refreshPlayerMetadataViews(): void;
   refreshPomodoroViews(): void;
   refreshPomodoroDisplays(): void;
   createStationLogo(parent: HTMLElement, station: Pick<FavoriteStation, 'favicon' | 'name'>, options: StationLogoOptions): HTMLElement;

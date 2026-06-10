@@ -40,6 +40,38 @@ export class StreamRadioPlayerView extends ItemView {
     this.renderPomodoro(container);
   }
 
+  updatePlaybackDisplay(): void {
+    const container = this.containerEl.children[1] as HTMLElement;
+    const renderedStationId = container.dataset.stationId || '';
+    const currentStationId = this.plugin.getCurrentStation()?.stationuuid || '';
+    if (renderedStationId !== currentStationId) {
+      const station = this.plugin.getCurrentStation();
+      if (!station) {
+        this.render();
+        return;
+      }
+
+      this.updateStationDisplay(container, station);
+    }
+
+    this.updateRadioControlStates(container);
+  }
+
+  updateMetadataDisplay(): void {
+    const container = this.containerEl.children[1] as HTMLElement;
+    const textEl = container.querySelector<HTMLElement>('.streamradio-now-playing-text');
+    const metadataLine = container.querySelector<HTMLElement>('.streamradio-now-playing');
+    if (!textEl || !metadataLine) {
+      this.render();
+      return;
+    }
+
+    textEl.setText(this.plugin.getMetadataLabel());
+    this.cancelMetadataScroll?.();
+    this.cancelMetadataScroll = null;
+    this.setupMetadataScroller(metadataLine);
+  }
+
   updatePomodoroDisplay(): void {
     const container = this.containerEl.children[1] as HTMLElement;
     const wrapper = container.querySelector<HTMLElement>('.streamradio-pomodoro');
@@ -63,6 +95,8 @@ export class StreamRadioPlayerView extends ItemView {
       timeEl.setText(formatPomodoroTime(session.remainingSeconds));
     }
 
+    this.updatePomodoroDots(wrapper, session);
+    this.updatePomodoroControlStates(wrapper, session);
     this.updatePomodoroToolStates(container, session);
   }
 
@@ -86,6 +120,7 @@ export class StreamRadioPlayerView extends ItemView {
     container.addClass('streamradio-player');
 
     const station = this.plugin.getCurrentStation();
+    container.dataset.stationId = station?.stationuuid || '';
     if (!station) {
       container.createDiv({ cls: 'streamradio-empty-state', text: 'Add favorite stations in StreamRadio settings.' });
       this.renderSelectionButton(container);
@@ -105,19 +140,19 @@ export class StreamRadioPlayerView extends ItemView {
     this.setupMetadataScroller(metadataLine);
 
     const controls = container.createDiv({ cls: 'streamradio-controls' });
-    const previousButton = controls.createEl('button', { cls: 'clickable-icon streamradio-control-button', attr: { type: 'button', 'aria-label': 'Previous station' } });
+    const previousButton = controls.createEl('button', { cls: 'clickable-icon streamradio-control-button streamradio-player-previous-button', attr: { type: 'button', 'aria-label': 'Previous station' } });
     setIcon(previousButton, 'skip-back');
     previousButton.addEventListener('click', () => {
       void this.plugin.playPreviousStation();
     });
 
-    const playButton = controls.createEl('button', { cls: 'clickable-icon streamradio-control-button', attr: { type: 'button', 'aria-label': this.plugin.getIsPlaying() ? 'Pause stream' : 'Start stream' } });
-    setIcon(playButton, this.plugin.getIsPlaying() ? 'pause' : 'play');
+    const playButton = controls.createEl('button', { cls: 'clickable-icon streamradio-control-button streamradio-player-play-button', attr: { type: 'button' } });
+    this.updateActivePlayButton(playButton, this.plugin.getIsPlaying(), this.plugin.getIsPlaying() ? 'Stop stream' : 'Start stream');
     playButton.addEventListener('click', () => {
       void this.plugin.togglePlayback();
     });
 
-    const nextButton = controls.createEl('button', { cls: 'clickable-icon streamradio-control-button', attr: { type: 'button', 'aria-label': 'Next station' } });
+    const nextButton = controls.createEl('button', { cls: 'clickable-icon streamradio-control-button streamradio-player-next-button', attr: { type: 'button', 'aria-label': 'Next station' } });
     setIcon(nextButton, 'skip-forward');
     nextButton.addEventListener('click', () => {
       void this.plugin.playNextStation();
@@ -180,6 +215,52 @@ export class StreamRadioPlayerView extends ItemView {
     }
 
     this.renderPomodoro(container);
+  }
+
+  private updateStationDisplay(container: HTMLElement, station: FavoriteStation): void {
+    const header = container.querySelector<HTMLElement>('.streamradio-player-header');
+    if (!header) {
+      this.render();
+      return;
+    }
+
+    this.cancelMetadataScroll?.();
+    this.cancelMetadataScroll = null;
+    container.dataset.stationId = station.stationuuid;
+    header.empty();
+
+    if (this.plugin.settings.showStationLogos) {
+      this.createStationLogo(header, station);
+    }
+
+    const details = header.createDiv({ cls: 'streamradio-player-details' });
+    details.createDiv({ cls: 'streamradio-player-title', text: station.name });
+    const metadataLine = details.createDiv({ cls: 'streamradio-now-playing', attr: { 'aria-label': 'Current track metadata' } });
+    metadataLine.createSpan({ cls: 'streamradio-now-playing-text', text: this.plugin.getMetadataLabel() });
+    this.setupMetadataScroller(metadataLine);
+  }
+
+  private updateRadioControlStates(container: HTMLElement): void {
+    const isPlaying = this.plugin.getIsPlaying();
+    const playButton = container.querySelector<HTMLButtonElement>('.streamradio-player-play-button');
+    if (playButton) {
+      this.updateActivePlayButton(playButton, isPlaying, isPlaying ? 'Stop stream' : 'Start stream');
+    }
+
+    const volumeButton = container.querySelector<HTMLButtonElement>('.streamradio-volume-icon-button');
+    if (volumeButton) {
+      volumeButton.classList.toggle('is-muted', this.plugin.getIsMuted());
+      volumeButton.setAttr('aria-label', this.plugin.getIsMuted() ? 'Unmute stream' : 'Mute stream');
+      volumeButton.setAttr('aria-pressed', String(this.plugin.getIsMuted()));
+      setIcon(volumeButton, this.plugin.getVolumeIconName());
+    }
+  }
+
+  private updateActivePlayButton(button: HTMLButtonElement, isActive: boolean, label: string): void {
+    button.classList.toggle('is-active-playback', isActive);
+    button.style.setProperty('--streamradio-active-control-color', this.plugin.settings.pomodoroTimerColor);
+    button.setAttr('aria-label', label);
+    setIcon(button, isActive ? 'square' : 'play');
   }
 
   private renderSelectionButton(container: HTMLElement): void {
@@ -392,8 +473,9 @@ export class StreamRadioPlayerView extends ItemView {
     }
   }
 
-  private renderPomodoroDots(parent: HTMLElement, session: PomodoroSessionState): void {
+  private renderPomodoroDots(parent: HTMLElement, session: PomodoroSessionState): HTMLElement {
     const dots = parent.createDiv({ cls: 'streamradio-pomodoro-dots', attr: { 'aria-label': `${session.completedIntervals} of ${this.plugin.settings.pomodoroIntervals} intervals complete` } });
+    dots.dataset.state = this.getPomodoroDotsState(session);
     const longBreakEvery = this.plugin.settings.pomodoroLongBreakEvery;
 
     for (let index = 0; index < this.plugin.settings.pomodoroIntervals; index += 1) {
@@ -413,6 +495,39 @@ export class StreamRadioPlayerView extends ItemView {
         dots.createSpan({ cls: 'streamradio-pomodoro-separator', attr: { 'aria-hidden': 'true' } });
       }
     }
+
+    return dots;
+  }
+
+  private updatePomodoroDots(wrapper: HTMLElement, session: PomodoroSessionState): void {
+    const content = wrapper.querySelector<HTMLElement>('.streamradio-pomodoro-content');
+    if (!content) {
+      return;
+    }
+
+    const nextState = this.getPomodoroDotsState(session);
+    const existingDots = content.querySelector<HTMLElement>('.streamradio-pomodoro-dots');
+    if (existingDots?.dataset.state === nextState) {
+      return;
+    }
+
+    existingDots?.remove();
+    const controls = content.querySelector<HTMLElement>('.streamradio-pomodoro-controls');
+    const dots = this.renderPomodoroDots(content, session);
+    if (controls) {
+      content.insertBefore(dots, controls);
+    }
+  }
+
+  private getPomodoroDotsState(session: PomodoroSessionState): string {
+    return [
+      session.phase,
+      session.currentIntervalIndex,
+      session.completedIntervals,
+      session.isRunning,
+      this.plugin.settings.pomodoroIntervals,
+      this.plugin.settings.pomodoroLongBreakEvery,
+    ].join(':');
   }
 
   private renderPomodoroControls(parent: HTMLElement, session: PomodoroSessionState): void {
@@ -424,8 +539,8 @@ export class StreamRadioPlayerView extends ItemView {
       this.plugin.resetCurrentPomodoroInterval();
     });
 
-    const playButton = controls.createEl('button', { cls: 'clickable-icon streamradio-control-button', attr: { type: 'button', 'aria-label': session.isRunning ? 'Pause Pomodoro timer' : 'Start Pomodoro timer' } });
-    setIcon(playButton, session.isRunning ? 'pause' : 'play');
+    const playButton = controls.createEl('button', { cls: 'clickable-icon streamradio-control-button streamradio-pomodoro-play-button', attr: { type: 'button', 'aria-label': session.isRunning ? 'Pause Pomodoro timer' : 'Start Pomodoro timer' } });
+    this.setPomodoroPlayIcon(playButton, session.isRunning);
     playButton.addEventListener('click', () => {
       this.plugin.togglePomodoro();
     });
@@ -441,6 +556,24 @@ export class StreamRadioPlayerView extends ItemView {
     resetButton.addEventListener('click', () => {
       this.plugin.resetPomodoro();
     });
+  }
+
+  private updatePomodoroControlStates(wrapper: HTMLElement, session: PomodoroSessionState): void {
+    const playButton = wrapper.querySelector<HTMLButtonElement>('.streamradio-pomodoro-play-button');
+    if (playButton) {
+      playButton.setAttr('aria-label', session.isRunning ? 'Pause Pomodoro timer' : 'Start Pomodoro timer');
+      this.setPomodoroPlayIcon(playButton, session.isRunning);
+    }
+  }
+
+  private setPomodoroPlayIcon(button: HTMLButtonElement, isRunning: boolean): void {
+    const icon = isRunning ? 'pause' : 'play';
+    if (button.dataset.icon === icon) {
+      return;
+    }
+
+    button.dataset.icon = icon;
+    setIcon(button, icon);
   }
 
   private applyPomodoroColors(wrapper: HTMLElement, phase: PomodoroPhase): void {

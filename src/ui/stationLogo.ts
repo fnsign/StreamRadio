@@ -1,30 +1,23 @@
-import { requestUrl, setIcon } from 'obsidian';
+import { setIcon } from 'obsidian';
 import type { FavoriteStation, StationLogoOptions } from '../types';
 
 export class StationLogoResolver {
-  private stationIconAvailability = new Map<string, Promise<string | null>>();
+  private unavailableStationIcons = new Set<string>();
 
-  async resolve(favicon: string): Promise<string | null> {
+  resolve(favicon: string): string | null {
     const normalizedUrl = favicon.trim();
-    if (!normalizedUrl) {
+    if (!normalizedUrl || this.unavailableStationIcons.has(normalizedUrl)) {
       return null;
     }
 
-    let pending = this.stationIconAvailability.get(normalizedUrl);
-    if (!pending) {
-      pending = requestUrl({
-        url: normalizedUrl,
-        method: 'HEAD',
-        headers: {
-          'User-Agent': 'StreamRadio/1.2.0',
-        },
-      })
-        .then((response) => (response.status >= 200 && response.status < 400 ? normalizedUrl : null))
-        .catch(() => null);
-      this.stationIconAvailability.set(normalizedUrl, pending);
-    }
+    return normalizedUrl;
+  }
 
-    return pending;
+  markUnavailable(favicon: string): void {
+    const normalizedUrl = favicon.trim();
+    if (normalizedUrl) {
+      this.unavailableStationIcons.add(normalizedUrl);
+    }
   }
 }
 
@@ -38,21 +31,39 @@ export function createStationLogo(parent: HTMLElement, station: Pick<FavoriteSta
   }
 
   const requestedUrl = station.favicon;
-  void resolver.resolve(requestedUrl).then((resolvedUrl) => {
-    if (!wrapper.isConnected || station.favicon !== requestedUrl || !resolvedUrl) {
+  const resolvedUrl = resolver.resolve(requestedUrl);
+  if (!resolvedUrl) {
+    return wrapper;
+  }
+
+  const image = content.ownerDocument.createElement('img');
+  image.className = options.imageClass;
+  image.alt = '';
+  image.loading = options.loading ?? 'lazy';
+  image.style.position = 'absolute';
+  image.style.inset = '0';
+  image.style.visibility = 'hidden';
+  image.addEventListener('load', () => {
+    if (!wrapper.isConnected || station.favicon !== requestedUrl) {
       return;
     }
 
     content.empty();
-    content.createEl('img', {
-      cls: options.imageClass,
-      attr: {
-        src: resolvedUrl,
-        alt: '',
-        loading: options.loading ?? 'lazy',
-      },
-    });
-  });
+    image.style.removeProperty('position');
+    image.style.removeProperty('inset');
+    image.style.removeProperty('visibility');
+    content.appendChild(image);
+  }, { once: true });
+  image.addEventListener('error', () => {
+    if (!wrapper.isConnected || station.favicon !== requestedUrl) {
+      return;
+    }
+
+    resolver.markUnavailable(requestedUrl);
+    renderFallbackStationLogo(content, options.fallbackClass);
+  }, { once: true });
+  content.appendChild(image);
+  image.src = resolvedUrl;
 
   return wrapper;
 }

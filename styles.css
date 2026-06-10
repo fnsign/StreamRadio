@@ -218,6 +218,13 @@
   background: var(--background-modifier-hover);
 }
 
+.streamradio-control-button.is-active-playback,
+.streamradio-control-button.is-active-playback:hover,
+.streamradio-icon-button.is-active-playback,
+.streamradio-icon-button.is-active-playback:hover {
+  color: var(--streamradio-active-control-color, var(--interactive-accent));
+}
+
 .streamradio-icon-button {
   width: 32px;
   height: 32px;

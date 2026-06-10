@@ -34,10 +34,10 @@ export default class StreamRadioPlugin extends Plugin {
   private volumeFadeMultiplier = 1;
   private volumeFadeToken = 0;
   private isPomodoroVolumeDucked = false;
-  private currentMetadata: IcyTrackMetadata = { title: '-', artist: '-' };
+  private currentMetadata: IcyTrackMetadata = { title: '', artist: '' };
   private icyMetadataService = new IcyMetadataService((metadata) => {
     this.currentMetadata = metadata;
-    this.refreshPlayerViews();
+    this.refreshPlayerMetadataViews();
   });
 
   async onload(): Promise<void> {
@@ -75,7 +75,7 @@ export default class StreamRadioPlugin extends Plugin {
     this.settings = normalizeSettings(loadedSettings, getThemeAccentColor());
   }
 
-  async saveSettings(): Promise<void> {
+  async saveSettings(refresh = true): Promise<void> {
     if (!this.settings.favorites.some((station) => station.stationuuid === this.settings.activeStationId)) {
       this.settings.activeStationId = this.settings.favorites[0]?.stationuuid || '';
     }
@@ -91,7 +91,9 @@ export default class StreamRadioPlugin extends Plugin {
     }
 
     await this.saveData(this.settings);
-    this.refreshPlayerViews();
+    if (refresh) {
+      this.refreshPlayerViews();
+    }
   }
 
   getCurrentStation(): FavoriteStation | null {
@@ -105,7 +107,7 @@ export default class StreamRadioPlugin extends Plugin {
   }
 
   getMetadataLabel(): string {
-    return `${this.currentMetadata.title} / ${this.currentMetadata.artist}`;
+    return [this.currentMetadata.title, this.currentMetadata.artist].filter(Boolean).join(' / ');
   }
 
   getSleepTimerLabel(): string {
@@ -270,14 +272,16 @@ export default class StreamRadioPlugin extends Plugin {
 
   async selectStation(station: FavoriteStation): Promise<void> {
     const shouldContinuePlayback = this.isPlaying;
-    this.settings.activeStationId = station.stationuuid;
-    await this.saveSettings();
 
     if (shouldContinuePlayback) {
       await this.playStation(station);
-    } else {
-      this.refreshPlayerViews();
+      return;
     }
+
+    this.settings.activeStationId = station.stationuuid;
+    await this.saveSettings(false);
+
+    this.refreshPlayerViews();
   }
 
   async playNextStation(): Promise<void> {
@@ -307,9 +311,13 @@ export default class StreamRadioPlugin extends Plugin {
       return;
     }
 
+    const stationChanged = this.settings.activeStationId !== station.stationuuid;
     this.stopAudioElement();
-  this.icyMetadataService.stop();
+    this.icyMetadataService.stop();
     this.settings.activeStationId = station.stationuuid;
+    if (stationChanged) {
+      this.refreshPlayerPlaybackViews();
+    }
 
     const audio = new Audio(station.streamUrl);
     audio.preload = 'none';
@@ -317,26 +325,26 @@ export default class StreamRadioPlugin extends Plugin {
     audio.addEventListener('ended', () => {
       this.isPlaying = false;
       this.icyMetadataService.stop();
-      this.refreshPlayerViews();
+      this.refreshPlayerPlaybackViews();
     });
     audio.addEventListener('pause', () => {
       if (this.audio === audio && !audio.ended) {
         this.isPlaying = false;
         this.icyMetadataService.stop();
-        this.refreshPlayerViews();
+        this.refreshPlayerPlaybackViews();
       }
     });
     audio.addEventListener('playing', () => {
       if (this.audio === audio) {
         this.isPlaying = true;
-        this.refreshPlayerViews();
+        this.refreshPlayerPlaybackViews();
       }
     });
     audio.addEventListener('error', () => {
       if (this.audio === audio) {
         this.isPlaying = false;
         this.icyMetadataService.stop();
-        this.refreshPlayerViews();
+        this.refreshPlayerPlaybackViews();
         new Notice(`Could not play ${station.name}.`);
       }
     });
@@ -347,11 +355,12 @@ export default class StreamRadioPlugin extends Plugin {
       await audio.play();
       this.isPlaying = true;
       this.icyMetadataService.start(station.streamUrl);
-      await this.saveSettings();
+      await this.saveSettings(false);
+      this.refreshPlayerPlaybackViews();
     } catch {
       this.isPlaying = false;
       this.icyMetadataService.stop();
-      this.refreshPlayerViews();
+      this.refreshPlayerPlaybackViews();
       new Notice(`Could not start ${station.name}.`);
     }
   }
@@ -363,7 +372,7 @@ export default class StreamRadioPlugin extends Plugin {
 
     this.icyMetadataService.stop();
     this.isPlaying = false;
-    this.refreshPlayerViews();
+    this.refreshPlayerPlaybackViews();
   }
 
   stopPlayback(): void {
@@ -371,7 +380,7 @@ export default class StreamRadioPlugin extends Plugin {
     this.icyMetadataService.stop();
     this.stopAudioElement();
     this.isPlaying = false;
-    this.refreshPlayerViews();
+    this.refreshPlayerPlaybackViews();
   }
 
   startSleepTimer(minutes: number): void {
@@ -486,7 +495,23 @@ export default class StreamRadioPlugin extends Plugin {
   refreshPomodoroViews(): void {
     for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_STREAMRADIO)) {
       if (leaf.view instanceof StreamRadioPlayerView) {
-        leaf.view.renderPomodoroOnly();
+        leaf.view.updatePomodoroDisplay();
+      }
+    }
+  }
+
+  refreshPlayerPlaybackViews(): void {
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_STREAMRADIO)) {
+      if (leaf.view instanceof StreamRadioPlayerView) {
+        leaf.view.updatePlaybackDisplay();
+      }
+    }
+  }
+
+  refreshPlayerMetadataViews(): void {
+    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_STREAMRADIO)) {
+      if (leaf.view instanceof StreamRadioPlayerView) {
+        leaf.view.updateMetadataDisplay();
       }
     }
   }
@@ -508,10 +533,11 @@ export default class StreamRadioPlugin extends Plugin {
       return;
     }
 
-    this.audio.pause();
-    this.audio.removeAttribute('src');
-    this.audio.load();
+    const audio = this.audio;
     this.audio = null;
+    audio.pause();
+    audio.removeAttribute('src');
+    audio.load();
   }
 
   private startPomodoroTimer(): void {

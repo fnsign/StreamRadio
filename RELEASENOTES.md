@@ -1,5 +1,17 @@
 # StreamRadio Release Notes
 
+## Version 1.3.2
+
+### Changed
+
+- The stop icons in active radio, favorites list and preview now use the configured focus/accent color for better legibility.
+
+### Fixed
+
+- Fixed an edge case für missing station icons.
+- Fixed flickering controls for player and timer.
+- Normalization for broken station payloads.
+
 ## Version 1.3.1
 
 ### Added

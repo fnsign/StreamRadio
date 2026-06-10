@@ -176,8 +176,11 @@ export class StationSearchModal extends Modal {
         }
       });
 
-      const previewButton = controls.createEl('button', { cls: 'clickable-icon streamradio-icon-button', attr: { type: 'button', 'aria-label': `Preview ${station.name}` } });
-      setIcon(previewButton, this.previewStationId === station.stationuuid ? 'square' : 'play');
+      const previewButton = controls.createEl('button', {
+        cls: 'clickable-icon streamradio-icon-button streamradio-preview-button',
+        attr: { type: 'button', 'data-station-id': station.stationuuid },
+      });
+      this.updatePreviewButton(previewButton, station);
       previewButton.addEventListener('click', () => {
         void this.togglePreview(station);
       });
@@ -218,7 +221,7 @@ export class StationSearchModal extends Modal {
   private async togglePreview(station: FavoriteStation): Promise<void> {
     if (this.previewStationId === station.stationuuid) {
       this.stopPreview();
-      this.renderResults();
+      this.updatePreviewButtons();
       return;
     }
 
@@ -228,21 +231,42 @@ export class StationSearchModal extends Modal {
     audio.addEventListener('error', () => {
       if (this.previewAudio === audio) {
         this.stopPreview();
-        this.renderResults();
+        this.updatePreviewButtons();
         new Notice(`Could not preview ${station.name}.`);
       }
     });
     this.previewAudio = audio;
     this.previewStationId = station.stationuuid;
-    this.renderResults();
+    this.updatePreviewButtons();
 
     try {
       await audio.play();
     } catch {
       this.stopPreview();
-      this.renderResults();
+      this.updatePreviewButtons();
       new Notice(`Could not preview ${station.name}.`);
     }
+  }
+
+  private updatePreviewButtons(): void {
+    if (!this.resultsEl) {
+      return;
+    }
+
+    for (const button of Array.from(this.resultsEl.querySelectorAll<HTMLButtonElement>('.streamradio-preview-button'))) {
+      const station = this.results.find((result) => result.stationuuid === button.dataset.stationId);
+      if (station) {
+        this.updatePreviewButton(button, station);
+      }
+    }
+  }
+
+  private updatePreviewButton(button: HTMLButtonElement, station: FavoriteStation): void {
+    const isPreviewing = this.previewStationId === station.stationuuid;
+    button.classList.toggle('is-active-playback', isPreviewing);
+    button.style.setProperty('--streamradio-active-control-color', this.plugin.settings.pomodoroTimerColor);
+    button.setAttr('aria-label', isPreviewing ? `Stop preview for ${station.name}` : `Preview ${station.name}`);
+    setIcon(button, isPreviewing ? 'square' : 'play');
   }
 
   private stopPreview(): void {

@@ -1202,9 +1202,10 @@ class StreamRadioSettingTab extends PluginSettingTab {
 
   private addResetButton(setting: Setting, tooltip: string, onReset: () => void): void {
     setting.addExtraButton((button) => {
+        button.extraSettingsEl.setAttr('aria-label', tooltip);
+        button.extraSettingsEl.setAttr('title', tooltip);
       button
         .setIcon('rotate-ccw')
-        .setTooltip(tooltip)
         .onClick(() => {
           onReset();
         });

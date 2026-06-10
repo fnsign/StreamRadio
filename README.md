@@ -15,6 +15,7 @@ As an additional option, it also provides a highly customizable and appealing Po
 - Preview stations directly in the search dialog before saving them in your favorites list.
 - Re-order favorites with drag and drop in the settings tab.
 - Show or hide station logos in the player.
+- Show live track metadata below the station name when the current desktop stream provides ICY metadata.
 - Start, pause, skip to the previous or next favorit station.
 - Adjust playback volume with a slider in the player.
 - Start a timer with 5, 10, 15, 30, 45, 60, 120 minutes, or a custom minute value.
@@ -92,6 +93,7 @@ StreamRadio follows the Obsidian plugin guidelines:
 - This plugin uses the network to search and play public web radio streams.
 - Station search data comes from radio-browser.info.
 - Playback connects directly to the stream URL provided by each station.
+- Live track metadata is retrieved on desktop by opening one direct HTTP/HTTPS request to the currently playing station stream URL with the `Icy-MetaData: 1` request header. This request goes to the selected station stream, follows station redirects, and is stopped when playback stops.
 - This plugin does not require an account.
 - This plugin does not require payment for full functionality.
 - This plugin does not include telemetry.
@@ -103,7 +105,7 @@ StreamRadio follows the Obsidian plugin guidelines:
 - Desktop only. Mobile Obsidian is not supported.
 - Supported operating systems are Windows, macOS, and Linux.
 - Stream availability depends on the station data provided by radio-browser.info and the radio station itself.
-- Browser audio playback does not expose ICY stream metadata in a reliable cross-platform way. StreamRadio does not display live artist or song metadata.
+- Live artist and song metadata depends on the current station providing ICY metadata.
 - Drag and drop in the favorites list uses standard browser drag events because Obsidian does not provide a dedicated reorder-list component.
 
 ## License

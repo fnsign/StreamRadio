@@ -6,6 +6,7 @@
 
 - Added ICY metadata retrieval for desktop playback, showing the current track as `title / artist` below the station name when streams provide metadata.
 - Added smooth overflow scrolling for long track metadata in the player.
+- Re-factored code for better modularity
 
 ### Changed
 

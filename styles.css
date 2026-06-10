@@ -404,8 +404,8 @@
 
 .streamradio-station-info-popover {
   position: absolute;
-  top: calc(100% + 8px);
-  left: calc(50% + 24px);
+  top: 50%;
+  left: calc(100% + 12px);
   z-index: 10;
   display: grid;
   gap: 4px;
@@ -419,7 +419,7 @@
   text-align: left;
   opacity: 0;
   pointer-events: none;
-  transform: translate(-50%, -4px);
+  transform: translate(0, -50%);
   transition: opacity 140ms ease, transform 140ms ease;
 }
 
@@ -427,7 +427,7 @@
 .streamradio-station-info-anchor:focus-visible .streamradio-station-info-popover,
 .streamradio-station-info-anchor:focus-within .streamradio-station-info-popover {
   opacity: 1;
-  transform: translate(-50%, 0);
+  transform: translate(0, -50%);
 }
 
 .streamradio-station-info-row {

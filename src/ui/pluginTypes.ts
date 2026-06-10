@@ -9,6 +9,7 @@ export interface StreamRadioPluginApi extends Plugin {
   saveSettings(): Promise<void>;
   getCurrentStation(): FavoriteStation | null;
   getIsPlaying(): boolean;
+  getMetadataLabel(): string;
   getSleepTimerLabel(): string;
   getVolume(): number;
   getDisplayedVolume(): number;

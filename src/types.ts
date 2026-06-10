@@ -36,6 +36,11 @@ export interface PomodoroSessionState {
   isRunning: boolean;
 }
 
+export interface IcyTrackMetadata {
+  title: string;
+  artist: string;
+}
+
 export interface FavoriteStation {
   stationuuid: string;
   name: string;

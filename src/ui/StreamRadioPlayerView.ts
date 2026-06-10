@@ -1,13 +1,14 @@
 import { ItemView, setIcon, WorkspaceLeaf } from 'obsidian';
 import { VIEW_TYPE_STREAMRADIO } from '../constants';
 import { formatPomodoroTime } from '../pomodoroUtils';
-import { bitrateLabel, stationFormat } from '../stationUtils';
 import type { FavoriteStation, PomodoroPhase, PomodoroSessionState } from '../types';
 import type { StreamRadioPluginApi } from './pluginTypes';
 import { SleepTimerModal } from './SleepTimerModal';
 import { StationPickerModal } from './StationPickerModal';
 
 export class StreamRadioPlayerView extends ItemView {
+  private cancelMetadataScroll: (() => void) | null = null;
+
   constructor(leaf: WorkspaceLeaf, private plugin: StreamRadioPluginApi) {
     super(leaf);
   }
@@ -26,6 +27,11 @@ export class StreamRadioPlayerView extends ItemView {
 
   async onOpen(): Promise<void> {
     this.render();
+  }
+
+  async onClose(): Promise<void> {
+    this.cancelMetadataScroll?.();
+    this.cancelMetadataScroll = null;
   }
 
   renderPomodoroOnly(): void {
@@ -72,6 +78,9 @@ export class StreamRadioPlayerView extends ItemView {
   }
 
   render(): void {
+    this.cancelMetadataScroll?.();
+    this.cancelMetadataScroll = null;
+
     const container = this.containerEl.children[1] as HTMLElement;
     container.empty();
     container.addClass('streamradio-player');
@@ -91,6 +100,9 @@ export class StreamRadioPlayerView extends ItemView {
 
     const details = header.createDiv({ cls: 'streamradio-player-details' });
     details.createDiv({ cls: 'streamradio-player-title', text: station.name });
+    const metadataLine = details.createDiv({ cls: 'streamradio-now-playing', attr: { 'aria-label': 'Current track metadata' } });
+    metadataLine.createSpan({ cls: 'streamradio-now-playing-text', text: this.plugin.getMetadataLabel() });
+    this.setupMetadataScroller(metadataLine);
 
     const controls = container.createDiv({ cls: 'streamradio-controls' });
     const previousButton = controls.createEl('button', { cls: 'clickable-icon streamradio-control-button', attr: { type: 'button', 'aria-label': 'Previous station' } });
@@ -175,6 +187,79 @@ export class StreamRadioPlayerView extends ItemView {
     button.addEventListener('click', () => new StationPickerModal(this.app, this.plugin).open());
   }
 
+  private setupMetadataScroller(container: HTMLElement): void {
+    const textEl = container.querySelector<HTMLElement>('.streamradio-now-playing-text');
+    if (!textEl) {
+      return;
+    }
+
+    let timeoutIds: number[] = [];
+    let animationFrameId = 0;
+    let isCancelled = false;
+
+    const clearTimers = () => {
+      timeoutIds.forEach((timeoutId) => window.clearTimeout(timeoutId));
+      timeoutIds = [];
+      if (animationFrameId) {
+        window.cancelAnimationFrame(animationFrameId);
+        animationFrameId = 0;
+      }
+      container.removeClass('is-overflowing', 'is-scrolling-left', 'is-scrolling-right');
+      container.setCssProps({
+        '--streamradio-now-playing-duration': '0ms',
+        '--streamradio-now-playing-shift': '0',
+      });
+    };
+
+    this.cancelMetadataScroll = () => {
+      isCancelled = true;
+      clearTimers();
+    };
+
+    animationFrameId = window.requestAnimationFrame(() => {
+      animationFrameId = 0;
+      const overflowDistance = Math.max(0, textEl.scrollWidth - container.clientWidth);
+      if (overflowDistance <= 0 || isCancelled) {
+        return;
+      }
+
+      container.addClass('is-overflowing');
+      const scrollDurationMs = Math.max(4000, Math.min(18000, overflowDistance * 45));
+      container.setCssProps({
+        '--streamradio-now-playing-duration': `${scrollDurationMs}ms`,
+        '--streamradio-now-playing-shift': `-${overflowDistance}px`,
+      });
+
+      const schedule = (callback: () => void, delayMs: number) => {
+        const timeoutId = window.setTimeout(() => {
+          timeoutIds = timeoutIds.filter((id) => id !== timeoutId);
+          callback();
+        }, delayMs);
+        timeoutIds.push(timeoutId);
+      };
+
+      const scrollLeft = () => {
+        if (isCancelled) {
+          return;
+        }
+        container.removeClass('is-scrolling-right');
+        container.addClass('is-scrolling-left');
+        schedule(scrollRight, scrollDurationMs + 3000);
+      };
+
+      const scrollRight = () => {
+        if (isCancelled) {
+          return;
+        }
+        container.removeClass('is-scrolling-left');
+        container.addClass('is-scrolling-right');
+        schedule(scrollLeft, scrollDurationMs + 3000);
+      };
+
+      scrollLeft();
+    });
+  }
+
   private renderPomodoroTools(container: HTMLElement): void {
     if (!this.plugin.settings.pomodoroEnabled) {
       return;
@@ -233,26 +318,11 @@ export class StreamRadioPlayerView extends ItemView {
   }
 
   private createStationLogo(parent: HTMLElement, station: FavoriteStation): void {
-    const wrapper = this.plugin.createStationLogo(parent, station, {
-      wrapperClass: 'streamradio-player-logo-slot streamradio-station-info-anchor',
+    this.plugin.createStationLogo(parent, station, {
+      wrapperClass: 'streamradio-player-logo-slot',
       imageClass: 'streamradio-player-logo',
       fallbackClass: 'streamradio-player-logo streamradio-logo-fallback',
       loading: 'eager',
-    });
-    wrapper.setAttr('tabindex', '0');
-
-    const popover = wrapper.createDiv({ cls: 'streamradio-station-info-popover' });
-    const infoRows = [
-      ['Country', station.country || 'Unknown'],
-      ['Language', station.language || 'Unknown'],
-      ['Format', stationFormat(station)],
-      ['Bitrate', bitrateLabel(station.bitrate)],
-    ];
-
-    infoRows.forEach(([label, value]) => {
-      const row = popover.createDiv({ cls: 'streamradio-station-info-row' });
-      row.createSpan({ cls: 'streamradio-station-info-label', text: `${label}:` });
-      row.createSpan({ cls: 'streamradio-station-info-value', text: value });
     });
   }
 

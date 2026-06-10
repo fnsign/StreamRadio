@@ -122,10 +122,11 @@ export class StreamRadioSettingTab extends PluginSettingTab {
     setting.addExtraButton((button) => {
       button
         .setIcon('rotate-ccw')
-        .setTooltip(tooltip)
         .onClick(() => {
           onReset();
         });
+      button.extraSettingsEl.setAttr('title', tooltip);
+      button.extraSettingsEl.setAttr('aria-label', tooltip);
     });
   }
 

@@ -8,9 +8,10 @@ import {
   VIEW_TYPE_STREAMRADIO,
 } from './constants';
 import { getThemeAccentColor } from './colorUtils';
+import { IcyMetadataService } from './icyMetadataService';
 import { DEFAULT_SETTINGS, clampInteger, clampPercentage, clampVolume, normalizeSettings } from './settings';
 import { secondsFromMinutes } from './pomodoroUtils';
-import type { AppWithSettings, FavoriteStation, PomodoroPhase, PomodoroSessionState, StationLogoOptions, StreamRadioSettings } from './types';
+import type { AppWithSettings, FavoriteStation, IcyTrackMetadata, PomodoroPhase, PomodoroSessionState, StationLogoOptions, StreamRadioSettings } from './types';
 import { StreamRadioPlayerView } from './ui/StreamRadioPlayerView';
 import { StreamRadioSettingTab } from './ui/StreamRadioSettingTab';
 import { StationLogoResolver, createStationLogo } from './ui/stationLogo';
@@ -33,6 +34,11 @@ export default class StreamRadioPlugin extends Plugin {
   private volumeFadeMultiplier = 1;
   private volumeFadeToken = 0;
   private isPomodoroVolumeDucked = false;
+  private currentMetadata: IcyTrackMetadata = { title: '-', artist: '-' };
+  private icyMetadataService = new IcyMetadataService((metadata) => {
+    this.currentMetadata = metadata;
+    this.refreshPlayerViews();
+  });
 
   async onload(): Promise<void> {
     await this.loadSettings();
@@ -55,6 +61,7 @@ export default class StreamRadioPlugin extends Plugin {
   }
 
   onunload(): void {
+    this.icyMetadataService.stop();
     this.stopPlayback();
     this.clearSleepTimer();
     this.clearPomodoroTimer();
@@ -95,6 +102,10 @@ export default class StreamRadioPlugin extends Plugin {
 
   getIsPlaying(): boolean {
     return this.isPlaying;
+  }
+
+  getMetadataLabel(): string {
+    return `${this.currentMetadata.title} / ${this.currentMetadata.artist}`;
   }
 
   getSleepTimerLabel(): string {
@@ -297,6 +308,7 @@ export default class StreamRadioPlugin extends Plugin {
     }
 
     this.stopAudioElement();
+  this.icyMetadataService.stop();
     this.settings.activeStationId = station.stationuuid;
 
     const audio = new Audio(station.streamUrl);
@@ -304,11 +316,13 @@ export default class StreamRadioPlugin extends Plugin {
     audio.volume = this.getEffectiveVolume();
     audio.addEventListener('ended', () => {
       this.isPlaying = false;
+      this.icyMetadataService.stop();
       this.refreshPlayerViews();
     });
     audio.addEventListener('pause', () => {
       if (this.audio === audio && !audio.ended) {
         this.isPlaying = false;
+        this.icyMetadataService.stop();
         this.refreshPlayerViews();
       }
     });
@@ -321,6 +335,7 @@ export default class StreamRadioPlugin extends Plugin {
     audio.addEventListener('error', () => {
       if (this.audio === audio) {
         this.isPlaying = false;
+        this.icyMetadataService.stop();
         this.refreshPlayerViews();
         new Notice(`Could not play ${station.name}.`);
       }
@@ -331,9 +346,11 @@ export default class StreamRadioPlugin extends Plugin {
     try {
       await audio.play();
       this.isPlaying = true;
+      this.icyMetadataService.start(station.streamUrl);
       await this.saveSettings();
     } catch {
       this.isPlaying = false;
+      this.icyMetadataService.stop();
       this.refreshPlayerViews();
       new Notice(`Could not start ${station.name}.`);
     }
@@ -344,12 +361,14 @@ export default class StreamRadioPlugin extends Plugin {
       this.audio.pause();
     }
 
+    this.icyMetadataService.stop();
     this.isPlaying = false;
     this.refreshPlayerViews();
   }
 
   stopPlayback(): void {
     this.cancelPomodoroVolumeDuck(false);
+    this.icyMetadataService.stop();
     this.stopAudioElement();
     this.isPlaying = false;
     this.refreshPlayerViews();

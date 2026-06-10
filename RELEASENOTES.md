@@ -1,5 +1,16 @@
 # StreamRadio Release Notes
 
+## Version 1.3.0
+
+### Added
+
+- Added ICY metadata retrieval for desktop playback, showing the current track as `title / artist` below the station name when streams provide metadata.
+- Added smooth overflow scrolling for long track metadata in the player.
+
+### Changed
+
+- Removed the station details popover from the player logo so the player header stays focused on station name and live track metadata.
+
 ## Version 1.2.1
 
 ### Added

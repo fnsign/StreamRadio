@@ -8,7 +8,7 @@
 
 ### Fixed
 
-- Fixed an edge case für missing station icons.
+- Fixed an edge case for missing station icons.
 - Fixed flickering controls for player and timer.
 - Normalization for broken station payloads.
 

@@ -120,6 +120,12 @@
   background: var(--background-secondary);
 }
 
+.streamradio-station-logo-loading {
+  position: absolute;
+  inset: 0;
+  visibility: hidden;
+}
+
 .streamradio-now-playing {
   --streamradio-now-playing-duration: 0ms;
   --streamradio-now-playing-shift: 0;

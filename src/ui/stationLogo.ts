@@ -38,20 +38,16 @@ export function createStationLogo(parent: HTMLElement, station: Pick<FavoriteSta
 
   const image = content.ownerDocument.createElement('img');
   image.className = options.imageClass;
+  image.addClass('streamradio-station-logo-loading');
   image.alt = '';
   image.loading = options.loading ?? 'lazy';
-  image.style.position = 'absolute';
-  image.style.inset = '0';
-  image.style.visibility = 'hidden';
   image.addEventListener('load', () => {
     if (!wrapper.isConnected || station.favicon !== requestedUrl) {
       return;
     }
 
     content.empty();
-    image.style.removeProperty('position');
-    image.style.removeProperty('inset');
-    image.style.removeProperty('visibility');
+    image.removeClass('streamradio-station-logo-loading');
     content.appendChild(image);
   }, { once: true });
   image.addEventListener('error', () => {

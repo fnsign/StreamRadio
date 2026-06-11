@@ -237,7 +237,6 @@ export class StreamRadioSettingTab extends PluginSettingTab {
       slider
         .setLimits(5, 100, 5)
         .setValue(this.plugin.settings.pomodoroDimFactor)
-        .setDynamicTooltip()
         .onChange((value) => {
           this.plugin.settings.pomodoroDimFactor = clampPercentage(value, DEFAULT_SETTINGS.pomodoroDimFactor);
           dimSetting.setName(`Dim factor (${this.plugin.settings.pomodoroDimFactor}%)`);

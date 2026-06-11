@@ -1,6 +1,6 @@
 # StreamRadio Release Notes
 
-## Version 1.3.2
+## Version 1.3.5
 
 ### Changed
 

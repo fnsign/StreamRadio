@@ -12,6 +12,7 @@ import { IcyMetadataService } from './icyMetadataService';
 import { DEFAULT_SETTINGS, clampInteger, clampPercentage, clampVolume, normalizeSettings } from './settings';
 import { secondsFromMinutes } from './pomodoroUtils';
 import type { AppWithSettings, FavoriteStation, IcyTrackMetadata, PomodoroPhase, PomodoroSessionState, StationLogoOptions, StreamRadioSettings } from './types';
+import { fetchRadioBrowserStationsByUuid } from './radioBrowserApi';
 import { StreamRadioPlayerView } from './ui/StreamRadioPlayerView';
 import { StreamRadioSettingTab } from './ui/StreamRadioSettingTab';
 import { StationLogoResolver, createStationLogo } from './ui/stationLogo';
@@ -35,6 +36,7 @@ export default class StreamRadioPlugin extends Plugin {
   private volumeFadeMultiplier = 1;
   private volumeFadeToken = 0;
   private isPomodoroVolumeDucked = false;
+  private isRefreshingFavoriteStationDetails = false;
   private currentMetadata: IcyTrackMetadata = { title: '', artist: '' };
   private icyMetadataService = new IcyMetadataService((metadata) => {
     this.currentMetadata = metadata;
@@ -43,6 +45,7 @@ export default class StreamRadioPlugin extends Plugin {
 
   async onload(): Promise<void> {
     await this.loadSettings();
+    void this.refreshFavoriteStationDetails();
 
     this.registerView(VIEW_TYPE_STREAMRADIO, (leaf) => new StreamRadioPlayerView(leaf, this));
 
@@ -497,6 +500,46 @@ export default class StreamRadioPlugin extends Plugin {
   async saveFavorites(favorites: FavoriteStation[]): Promise<void> {
     this.settings.favorites = favorites;
     await this.saveSettings();
+  }
+
+  private async refreshFavoriteStationDetails(): Promise<void> {
+    if (this.isRefreshingFavoriteStationDetails) {
+      return;
+    }
+
+    const favoritesToRefresh = this.settings.favorites.filter((station) => !station.homepage.trim() || !station.favicon.trim());
+    if (favoritesToRefresh.length === 0) {
+      return;
+    }
+
+    this.isRefreshingFavoriteStationDetails = true;
+    try {
+      const updatedStations = await fetchRadioBrowserStationsByUuid(favoritesToRefresh.map((station) => station.stationuuid));
+      const updatedStationsById = new Map(updatedStations.map((station) => [station.stationuuid, station]));
+      let didUpdate = false;
+      const favorites = this.settings.favorites.map((station) => {
+        const updatedStation = updatedStationsById.get(station.stationuuid);
+        if (!updatedStation) {
+          return station;
+        }
+
+        const homepage = station.homepage || updatedStation.homepage;
+        const favicon = station.favicon || updatedStation.favicon;
+        if (homepage === station.homepage && favicon === station.favicon) {
+          return station;
+        }
+
+        didUpdate = true;
+        return { ...station, homepage, favicon };
+      });
+
+      if (didUpdate) {
+        this.settings.favorites = favorites;
+        await this.saveSettings();
+      }
+    } finally {
+      this.isRefreshingFavoriteStationDetails = false;
+    }
   }
 
   refreshPlayerViews(): void {

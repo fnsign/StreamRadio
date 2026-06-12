@@ -22,7 +22,27 @@ export class StationLogoResolver {
 }
 
 export function createStationLogo(parent: HTMLElement, station: Pick<FavoriteStation, 'favicon' | 'name'>, options: StationLogoOptions, resolver: StationLogoResolver): HTMLElement {
-  const wrapper = parent.createDiv({ cls: options.wrapperClass });
+  const websiteUrl = normalizeExternalWebsiteUrl(options.websiteUrl);
+  const wrapper = websiteUrl
+    ? parent.createEl('a', {
+      cls: options.wrapperClass,
+      attr: {
+        href: websiteUrl,
+        target: '_blank',
+        rel: 'noopener',
+        'aria-label': `Open website for ${station.name}`,
+        title: `Open website for ${station.name}`,
+      },
+    })
+    : parent.createDiv({ cls: options.wrapperClass });
+  if (websiteUrl) {
+    wrapper.addClass('streamradio-station-logo-link');
+    wrapper.addEventListener('click', (event) => {
+      event.preventDefault();
+      window.open(websiteUrl, '_blank', 'noopener');
+    });
+  }
+
   const content = wrapper.createDiv({ cls: 'streamradio-station-logo-content' });
   renderFallbackStationLogo(content, options.fallbackClass);
 
@@ -62,6 +82,20 @@ export function createStationLogo(parent: HTMLElement, station: Pick<FavoriteSta
   image.src = resolvedUrl;
 
   return wrapper;
+}
+
+function normalizeExternalWebsiteUrl(url: string | undefined): string {
+  const trimmedUrl = url?.trim() || '';
+  if (!trimmedUrl) {
+    return '';
+  }
+
+  try {
+    const parsedUrl = new URL(trimmedUrl);
+    return parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:' ? parsedUrl.toString() : '';
+  } catch {
+    return '';
+  }
 }
 
 function renderFallbackStationLogo(parent: HTMLElement, className: string): void {

@@ -7,6 +7,7 @@ export function toFavoriteStation(station: RadioBrowserStation): FavoriteStation
     name: station.name || 'Unnamed station',
     streamUrl: station.url_resolved || station.url || '',
     favicon: station.favicon || '',
+    homepage: station.homepage || '',
     tags: station.tags || '',
     codec: station.codec || '',
     bitrate: station.bitrate || 0,

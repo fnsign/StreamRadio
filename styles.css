@@ -110,6 +110,12 @@
   height: 100%;
 }
 
+.streamradio-station-logo-link {
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
 .streamradio-station-logo-slot {
   width: 36px;
   height: 36px;

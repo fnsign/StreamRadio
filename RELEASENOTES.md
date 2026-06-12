@@ -1,5 +1,17 @@
 # StreamRadio Release Notes
 
+## Version 1.4.0
+
+### Added
+
+- You can now add and manage custom radio streams, which are not available in the catalog.
+- The favicons are now clickable and open the station's website in the browser. 
+- For existing favorite list: The website URLs are silently added in the background and connected to the favicons. No user interaction is needed.
+
+### Improved
+
+- The onboarding process (first time use with empty favorites list) leads the user directly to the search in settings. 
+
 ## Version 1.3.5
 
 ### Changed

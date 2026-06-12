@@ -12,6 +12,7 @@ As an additional option, it also provides a highly customizable and appealing Po
 ## Features
 
 - Search stations by name, country, language, and tag through the radio-browser.info API.
+- Add custom stations, if not available in the catalog.
 - Preview stations directly in the search dialog before saving them in your favorites list.
 - Re-order favorites with drag and drop in the settings tab.
 - Show or hide station logos in the player.
@@ -31,13 +32,12 @@ StreamRadio adds a radio icon to the left ribbon. The icon opens the StreamRadio
 
 The player shows:
 
-- Station logo, when enabled and available
+- Clickable Station logo, when enabled
 - Station name
-- Country and language information
-- Codec and bitrate
-- Playback controls
+- Song, performer or other information provided by the radio station
+- Playback controls, skip to next/previous station
 - Volume slider
-- Timer status
+- Sleep timer status
 - Optional: Pomodoro timer with interval markers, focus/break labels, countdown ring, louder 10-second audio countdowns, start, pause, restart, skip, reset, and hide/show controls
 
 ![Short break](./assets/Short_break.png)

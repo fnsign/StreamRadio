@@ -18,6 +18,7 @@ import { StationLogoResolver, createStationLogo } from './ui/stationLogo';
 
 export default class StreamRadioPlugin extends Plugin {
   settings: StreamRadioSettings = DEFAULT_SETTINGS;
+  private settingTab: StreamRadioSettingTab | null = null;
   private audio: HTMLAudioElement | null = null;
   private isPlaying = false;
   private sleepTimerId: number | null = null;
@@ -57,7 +58,8 @@ export default class StreamRadioPlugin extends Plugin {
       },
     });
 
-    this.addSettingTab(new StreamRadioSettingTab(this.app, this));
+    this.settingTab = new StreamRadioSettingTab(this.app, this);
+    this.addSettingTab(this.settingTab);
   }
 
   onunload(): void {
@@ -188,14 +190,27 @@ export default class StreamRadioPlugin extends Plugin {
   }
 
   openSettingsTab(): void {
+    this.openPluginSettingsTab();
+  }
+
+  openStationSearchSettings(): void {
+    if (!this.openPluginSettingsTab()) {
+      return;
+    }
+
+    this.settingTab?.openStationSearch();
+  }
+
+  private openPluginSettingsTab(): boolean {
     const settingsWindow = (this.app as AppWithSettings).setting;
     if (!settingsWindow) {
       new Notice('StreamRadio could not open plugin settings.');
-      return;
+      return false;
     }
 
     settingsWindow.open();
     settingsWindow.openTabById(this.manifest.id);
+    return true;
   }
 
   getIsPomodoroHidden(): boolean {

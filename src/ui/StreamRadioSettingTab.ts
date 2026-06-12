@@ -34,6 +34,12 @@ export class StreamRadioSettingTab extends PluginSettingTab {
     this.renderRadioSection(containerEl);
   }
 
+  openStationSearch(): void {
+    this.activeSection = 'radio';
+    this.renderSettings();
+    new StationSearchModal(this.app, this.plugin, () => this.renderSettings()).open();
+  }
+
   private renderTabs(containerEl: HTMLElement): void {
     const tabs = containerEl.createDiv({ cls: 'streamradio-settings-tabs' });
     this.createSettingsTab(tabs, 'radio', 'Radio');
@@ -85,7 +91,7 @@ export class StreamRadioSettingTab extends PluginSettingTab {
           .setButtonText('Add favorites')
           .setCta()
           .onClick(() => {
-            new StationSearchModal(this.app, this.plugin, () => this.renderSettings()).open();
+            this.openStationSearch();
           });
       });
 

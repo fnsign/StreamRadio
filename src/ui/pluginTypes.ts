@@ -18,6 +18,7 @@ export interface StreamRadioPluginApi extends Plugin {
   setVolume(volume: number, persist?: boolean): Promise<void>;
   toggleMute(persist?: boolean): Promise<void>;
   openSettingsTab(): void;
+  openStationSearchSettings(): void;
   getIsPomodoroHidden(): boolean;
   togglePomodoroVisibility(): void;
   getIsPomodoroDisplayDimmed(session?: PomodoroSessionState): boolean;

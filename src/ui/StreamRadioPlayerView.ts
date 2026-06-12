@@ -265,7 +265,7 @@ export class StreamRadioPlayerView extends ItemView {
 
   private renderSelectionButton(container: HTMLElement): void {
     const button = container.createEl('button', { cls: 'mod-cta streamradio-wide-button', text: 'Select station', attr: { type: 'button' } });
-    button.addEventListener('click', () => new StationPickerModal(this.app, this.plugin).open());
+    button.addEventListener('click', () => this.plugin.openStationSearchSettings());
   }
 
   private setupMetadataScroller(container: HTMLElement): void {

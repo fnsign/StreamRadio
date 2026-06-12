@@ -3,7 +3,7 @@ import {
   DEFAULT_POMODORO_SHORT_BREAK_COLOR,
   LEGACY_DEFAULT_POMODORO_FOCUS_COLOR,
 } from './constants';
-import type { StreamRadioSettings } from './types';
+import type { FavoriteStation, StreamRadioSettings } from './types';
 
 export const DEFAULT_SETTINGS: StreamRadioSettings = {
   showStationLogos: true,
@@ -29,7 +29,9 @@ export const DEFAULT_SETTINGS: StreamRadioSettings = {
 
 export function normalizeSettings(loadedSettings: Partial<StreamRadioSettings> | null, themeAccentColor: string): StreamRadioSettings {
   const settings = Object.assign({}, DEFAULT_SETTINGS, loadedSettings);
-  settings.favorites = settings.favorites.filter((station) => station.stationuuid && station.streamUrl);
+  settings.favorites = Array.isArray(settings.favorites)
+    ? settings.favorites.filter((station) => station.stationuuid && station.streamUrl).map(normalizeFavoriteStation)
+    : [];
   settings.volume = clampVolume(settings.volume ?? DEFAULT_SETTINGS.volume);
   settings.muted = settings.muted ?? DEFAULT_SETTINGS.muted;
   settings.lastVolume = clampVolume(settings.lastVolume ?? settings.volume ?? DEFAULT_SETTINGS.lastVolume);
@@ -52,6 +54,13 @@ export function normalizeSettings(loadedSettings: Partial<StreamRadioSettings> |
   settings.pomodoroHidden = settings.pomodoroHidden ?? DEFAULT_SETTINGS.pomodoroHidden;
   settings.pomodoroManualDimEnabled = settings.pomodoroManualDimEnabled ?? DEFAULT_SETTINGS.pomodoroManualDimEnabled;
   return settings;
+}
+
+function normalizeFavoriteStation(station: FavoriteStation): FavoriteStation {
+  return {
+    ...station,
+    homepage: station.homepage || '',
+  };
 }
 
 export function clampVolume(volume: number): number {

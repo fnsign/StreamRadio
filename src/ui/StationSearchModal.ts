@@ -4,6 +4,13 @@ import { bitrateLabel, normalizeFacetName, stationFormat } from '../stationUtils
 import type { FavoriteStation, RadioBrowserFacet, SearchFilters } from '../types';
 import type { StreamRadioPluginApi } from './pluginTypes';
 
+interface CustomStationDraft {
+  name: string;
+  streamUrl: string;
+  favicon: string;
+  homepage: string;
+}
+
 export class StationSearchModal extends Modal {
   private filters: SearchFilters = { name: '', country: '', language: '', tag: '' };
   private selected = new Map<string, FavoriteStation>();
@@ -82,7 +89,17 @@ export class StationSearchModal extends Modal {
 
     this.resultsEl = this.contentEl.createDiv({ cls: 'streamradio-results' });
     this.paginationEl = this.contentEl.createDiv({ cls: 'streamradio-pagination' });
-    this.resultsEl.createDiv({ cls: 'streamradio-empty-state', text: 'Search to add stations.' });
+    this.resultsEl.createDiv({ cls: 'streamradio-search-separator' });
+
+    const customStationRow = this.contentEl.createDiv({ cls: 'streamradio-custom-station-action' });
+    new ButtonComponent(customStationRow)
+      .setButtonText('Add a custom radio stream')
+      .onClick(() => {
+        new CustomStationModal(this.app, this.plugin, (station) => {
+          this.selected.set(station.stationuuid, station);
+          this.onSaved();
+        }).open();
+      });
 
     void this.loadFacets();
   }
@@ -295,4 +312,228 @@ export class StationSearchModal extends Modal {
       loading: 'lazy',
     });
   }
+}
+
+class CustomStationModal extends Modal {
+  private previewAudio: HTMLAudioElement | null = null;
+  private previewButton: HTMLButtonElement | null = null;
+  private isPreviewing = false;
+
+  constructor(app: App, private plugin: StreamRadioPluginApi, private onSaved: (station: FavoriteStation) => void) {
+    super(app);
+  }
+
+  onOpen(): void {
+    this.titleEl.setText('Add custom radio stream');
+    this.contentEl.empty();
+    this.contentEl.addClass('streamradio-custom-station-modal');
+
+    const nameField = this.createTextField('Radio name', 'Example FM', true);
+    const streamUrlField = this.createTextField('Streaming URL', 'https://example.com/live-stream.mp3', true, 'url');
+    const faviconField = this.createTextField('Favicon URL', 'https://example.com/favicon.png', false, 'url');
+    const websiteField = this.createTextField('Website URL', 'https://example.com', false, 'url');
+
+    streamUrlField.component.onChange(() => {
+      this.stopPreview();
+      this.updatePreviewButton(streamUrlField.component.getValue());
+    });
+
+    const previewRow = this.contentEl.createDiv({ cls: 'streamradio-custom-preview-row' });
+    this.previewButton = previewRow.createEl('button', {
+      cls: 'clickable-icon streamradio-icon-button streamradio-preview-button',
+      attr: { type: 'button', 'aria-label': 'Preview custom stream' },
+    });
+    this.previewButton.addEventListener('click', () => {
+      void this.togglePreview(nameField.component.getValue(), streamUrlField.component.getValue());
+    });
+    this.updatePreviewButton(streamUrlField.component.getValue());
+    previewRow.createSpan({ cls: 'streamradio-custom-preview-label', text: 'Preview stream' });
+
+    const actionRow = this.contentEl.createDiv({ cls: 'streamradio-modal-actions' });
+    new ButtonComponent(actionRow)
+      .setButtonText('Cancel')
+      .onClick(() => {
+        this.close();
+      });
+    new ButtonComponent(actionRow)
+      .setButtonText('Save')
+      .setCta()
+      .onClick(() => {
+        void this.saveCustomStation({
+          name: nameField.component.getValue(),
+          streamUrl: streamUrlField.component.getValue(),
+          favicon: faviconField.component.getValue(),
+          homepage: websiteField.component.getValue(),
+        }, {
+          name: nameField.errorEl,
+          streamUrl: streamUrlField.errorEl,
+          favicon: faviconField.errorEl,
+          homepage: websiteField.errorEl,
+        });
+      });
+  }
+
+  onClose(): void {
+    this.stopPreview();
+    this.contentEl.empty();
+  }
+
+  private createTextField(label: string, placeholder: string, required: boolean, inputType: HTMLInputElement['type'] = 'text'): { component: TextComponent; errorEl: HTMLElement } {
+    const field = this.contentEl.createDiv({ cls: 'streamradio-custom-field' });
+    field.createEl('label', { text: required ? `${label} *` : label });
+    const component = new TextComponent(field).setPlaceholder(placeholder);
+    component.inputEl.type = inputType;
+    component.inputEl.required = required;
+    component.inputEl.addClass('streamradio-custom-input');
+    const errorEl = field.createDiv({ cls: 'streamradio-custom-field-error' });
+    return { component, errorEl };
+  }
+
+  private async saveCustomStation(draft: CustomStationDraft, errorEls: Record<keyof CustomStationDraft, HTMLElement>): Promise<void> {
+    const validation = this.validateDraft(draft);
+    this.renderErrors(validation.errors, errorEls);
+    if (!validation.station) {
+      return;
+    }
+
+    await this.plugin.saveFavorites([...this.plugin.settings.favorites, validation.station]);
+    this.onSaved(validation.station);
+    new Notice(`Added ${validation.station.name}.`);
+    this.close();
+  }
+
+  private validateDraft(draft: CustomStationDraft): { station: FavoriteStation | null; errors: Record<keyof CustomStationDraft, string> } {
+    const errors: Record<keyof CustomStationDraft, string> = {
+      name: '',
+      streamUrl: '',
+      favicon: '',
+      homepage: '',
+    };
+    const name = draft.name.trim();
+    const streamUrl = normalizeHttpUrl(draft.streamUrl);
+    const favicon = normalizeHttpUrl(draft.favicon);
+    const homepage = normalizeHttpUrl(draft.homepage);
+
+    if (!name) {
+      errors.name = 'Enter a radio name.';
+    }
+
+    if (!streamUrl) {
+      errors.streamUrl = draft.streamUrl.trim() ? 'Enter a valid streaming URL.' : 'Enter a streaming URL.';
+    }
+
+    if (draft.favicon.trim() && !favicon) {
+      errors.favicon = 'Enter a valid favicon URL.';
+    }
+
+    if (draft.homepage.trim() && !homepage) {
+      errors.homepage = 'Enter a valid website URL.';
+    }
+
+    const hasErrors = Object.values(errors).some(Boolean);
+    return {
+      errors,
+      station: hasErrors ? null : {
+        stationuuid: createCustomStationId(),
+        name,
+        streamUrl,
+        favicon,
+        homepage,
+        tags: 'Custom stream',
+        codec: '',
+        bitrate: 0,
+        country: '',
+        language: '',
+      },
+    };
+  }
+
+  private renderErrors(errors: Record<keyof CustomStationDraft, string>, errorEls: Record<keyof CustomStationDraft, HTMLElement>): void {
+    for (const [fieldName, message] of Object.entries(errors) as Array<[keyof CustomStationDraft, string]>) {
+      errorEls[fieldName].setText(message);
+      errorEls[fieldName].toggleClass('is-visible', Boolean(message));
+    }
+  }
+
+  private async togglePreview(name: string, streamUrlValue: string): Promise<void> {
+    if (this.isPreviewing) {
+      this.stopPreview();
+      this.updatePreviewButton(streamUrlValue);
+      return;
+    }
+
+    const streamUrl = normalizeHttpUrl(streamUrlValue);
+    if (!streamUrl) {
+      new Notice('Enter a valid streaming URL to preview.');
+      return;
+    }
+
+    this.stopPreview();
+    const audio = new Audio(streamUrl);
+    audio.preload = 'none';
+    audio.addEventListener('error', () => {
+      if (this.previewAudio === audio) {
+        this.stopPreview();
+        this.updatePreviewButton(streamUrlValue);
+        new Notice(`Could not preview ${name.trim() || 'custom stream'}.`);
+      }
+    });
+    this.previewAudio = audio;
+    this.isPreviewing = true;
+    this.updatePreviewButton(streamUrlValue);
+
+    try {
+      await audio.play();
+    } catch {
+      this.stopPreview();
+      this.updatePreviewButton(streamUrlValue);
+      new Notice(`Could not preview ${name.trim() || 'custom stream'}.`);
+    }
+  }
+
+  private updatePreviewButton(streamUrlValue: string): void {
+    if (!this.previewButton) {
+      return;
+    }
+
+    const isValidPreviewUrl = Boolean(normalizeHttpUrl(streamUrlValue));
+    this.previewButton.disabled = !isValidPreviewUrl;
+    this.previewButton.classList.toggle('is-active-playback', this.isPreviewing);
+    this.previewButton.style.setProperty('--streamradio-active-control-color', this.plugin.settings.pomodoroTimerColor);
+    this.previewButton.setAttr('aria-label', this.isPreviewing ? 'Stop custom stream preview' : 'Preview custom stream');
+    setIcon(this.previewButton, this.isPreviewing ? 'square' : 'play');
+  }
+
+  private stopPreview(): void {
+    if (this.previewAudio) {
+      this.previewAudio.pause();
+      this.previewAudio.removeAttribute('src');
+      this.previewAudio.load();
+    }
+
+    this.previewAudio = null;
+    this.isPreviewing = false;
+  }
+}
+
+function normalizeHttpUrl(value: string): string {
+  const trimmedValue = value.trim();
+  if (!trimmedValue) {
+    return '';
+  }
+
+  try {
+    const url = new URL(trimmedValue);
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.toString() : '';
+  } catch {
+    return '';
+  }
+}
+
+function createCustomStationId(): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return `custom-${crypto.randomUUID()}`;
+  }
+
+  return `custom-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }

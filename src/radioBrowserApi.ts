@@ -48,6 +48,21 @@ export async function searchRadioBrowserStations(filters: SearchFilters, page: n
   };
 }
 
+export async function fetchRadioBrowserStationsByUuid(stationUuids: string[]): Promise<FavoriteStation[]> {
+  const uniqueStationUuids = Array.from(new Set(stationUuids.map((stationUuid) => stationUuid.trim()).filter(Boolean)));
+  const stations = await Promise.all(uniqueStationUuids.map(async (stationUuid) => {
+    try {
+      const matches = await fetchRadioBrowser<RadioBrowserStation[]>(`/stations/byuuid/${encodeURIComponent(stationUuid)}`);
+      const station = matches[0];
+      return station ? toFavoriteStation(station) : null;
+    } catch {
+      return null;
+    }
+  }));
+
+  return stations.filter((station): station is FavoriteStation => station !== null);
+}
+
 function createSearchQuery(filters: SearchFilters, limit: number, offset: number): URLSearchParams {
   const query = new URLSearchParams();
   query.set('hidebroken', 'true');

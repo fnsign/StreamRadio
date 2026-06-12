@@ -1,5 +1,6 @@
 .streamradio-player,
 .streamradio-search-modal,
+.streamradio-custom-station-modal,
 .streamradio-picker-modal,
 .streamradio-timer-modal,
 .streamradio-release-notes {
@@ -108,6 +109,12 @@
   justify-content: center;
   width: 100%;
   height: 100%;
+}
+
+.streamradio-station-logo-link {
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
 }
 
 .streamradio-station-logo-slot {
@@ -552,9 +559,61 @@ button.streamradio-save-button:active {
   overflow: auto;
 }
 
+.streamradio-search-separator {
+  height: 1px;
+  margin: var(--size-4-3) 0;
+  background: var(--background-modifier-border);
+}
+
 .streamradio-pagination {
   justify-content: center;
   margin-top: var(--size-4-3);
+}
+
+.streamradio-custom-station-action {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--size-4-4);
+}
+
+.streamradio-custom-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-2-1);
+  margin-bottom: var(--size-4-3);
+}
+
+.streamradio-custom-field label {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  font-weight: var(--font-medium);
+}
+
+.streamradio-custom-input {
+  width: 100%;
+}
+
+.streamradio-custom-field-error {
+  display: none;
+  color: var(--text-error);
+  font-size: var(--font-ui-smaller);
+  line-height: var(--line-height-tight);
+}
+
+.streamradio-custom-field-error.is-visible {
+  display: block;
+}
+
+.streamradio-custom-preview-row {
+  display: flex;
+  align-items: center;
+  gap: var(--size-2-2);
+  margin: var(--size-4-4) 0;
+}
+
+.streamradio-custom-preview-label {
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
 }
 
 .streamradio-timer-options {

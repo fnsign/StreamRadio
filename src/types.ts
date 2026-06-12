@@ -46,6 +46,7 @@ export interface FavoriteStation {
   name: string;
   streamUrl: string;
   favicon: string;
+  homepage: string;
   tags: string;
   codec: string;
   bitrate: number;
@@ -59,6 +60,7 @@ export interface RadioBrowserStation {
   url_resolved?: string;
   url?: string;
   favicon?: string;
+  homepage?: string;
   tags?: string;
   codec?: string;
   bitrate?: number;
@@ -83,6 +85,7 @@ export interface StationLogoOptions {
   fallbackClass: string;
   wrapperClass: string;
   loading?: 'lazy' | 'eager';
+  websiteUrl?: string;
 }
 
 export interface ObsidianSettingsWindow {

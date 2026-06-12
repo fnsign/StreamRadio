@@ -404,6 +404,7 @@ export class StreamRadioPlayerView extends ItemView {
       imageClass: 'streamradio-player-logo',
       fallbackClass: 'streamradio-player-logo streamradio-logo-fallback',
       loading: 'eager',
+      websiteUrl: station.homepage,
     });
   }
 

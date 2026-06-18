@@ -1,5 +1,6 @@
 import { App, Modal } from 'obsidian';
 import { bitrateLabel, stationFormat } from '../stationUtils';
+import { StationSearchModal } from './StationSearchModal';
 import type { StreamRadioPluginApi } from './pluginTypes';
 
 export class StationPickerModal extends Modal {
@@ -8,9 +9,31 @@ export class StationPickerModal extends Modal {
   }
 
   onOpen(): void {
-    this.titleEl.setText('Select station');
+    this.titleEl.empty();
+    this.titleEl.addClass('streamradio-picker-title');
+    this.titleEl.createSpan({ text: 'Select station' });
+    const addFavoritesButton = this.titleEl.createEl('button', {
+      cls: 'mod-cta',
+      text: '+ Add favorites',
+      attr: { type: 'button' },
+    });
+    addFavoritesButton.addClass('streamradio-picker-add-favorites');
+    addFavoritesButton.addEventListener('click', () => {
+      new StationSearchModal(this.app, this.plugin, () => this.renderFavorites()).open();
+    });
+
     this.contentEl.empty();
     this.contentEl.addClass('streamradio-picker-modal');
+    this.renderFavorites();
+  }
+
+  onClose(): void {
+    this.titleEl.removeClass('streamradio-picker-title');
+    this.contentEl.empty();
+  }
+
+  private renderFavorites(): void {
+    this.contentEl.empty();
 
     if (this.plugin.settings.favorites.length === 0) {
       this.contentEl.createDiv({ cls: 'streamradio-empty-state', text: 'No favorite stations yet.' });
@@ -35,9 +58,5 @@ export class StationPickerModal extends Modal {
         void this.plugin.playStation(station);
       });
     }
-  }
-
-  onClose(): void {
-    this.contentEl.empty();
   }
 }

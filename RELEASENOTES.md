@@ -1,5 +1,11 @@
 # StreamRadio Release Notes
 
+## Version 1.4.1
+
+### Improved
+
+- The "Select station" list contains now an "+ Add favorites" button to add quicker and easier further stations.
+
 ## Version 1.4.0
 
 ### Added

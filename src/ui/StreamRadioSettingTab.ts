@@ -88,7 +88,7 @@ export class StreamRadioSettingTab extends PluginSettingTab {
       .setDesc('Add and arrange favorite stations.')
       .addButton((button) => {
         button
-          .setButtonText('Add favorites')
+          .setButtonText('+ Add favorites')
           .setCta()
           .onClick(() => {
             this.openStationSearch();

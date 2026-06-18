@@ -39,6 +39,7 @@ export interface StreamRadioPluginApi extends Plugin {
   skipToNextPomodoroInterval(): void;
   resetPomodoro(refresh?: boolean): void;
   saveFavorites(favorites: FavoriteStation[]): Promise<void>;
+  removeFavorite(stationUuid: string): Promise<void>;
   refreshPlayerViews(): void;
   refreshPlayerPlaybackViews(): void;
   refreshPlayerMetadataViews(): void;

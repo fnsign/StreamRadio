@@ -302,8 +302,7 @@ export class StreamRadioSettingTab extends PluginSettingTab {
       const removeButton = actions.createEl('button', { cls: 'clickable-icon streamradio-icon-button', attr: { type: 'button', 'aria-label': `Remove ${station.name}` } });
       setIcon(removeButton, 'trash-2');
       removeButton.addEventListener('click', () => {
-        const favorites = this.plugin.settings.favorites.filter((favorite) => favorite.stationuuid !== station.stationuuid);
-        void this.plugin.saveFavorites(favorites).then(() => {
+        void this.plugin.removeFavorite(station.stationuuid).then(() => {
           this.renderSettings();
         });
       });

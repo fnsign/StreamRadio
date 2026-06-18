@@ -504,7 +504,28 @@
 
 .streamradio-picker-row {
   text-align: left;
+}
+
+.streamradio-picker-select {
+  display: flex;
+  align-items: center;
+  gap: var(--size-4-3);
+  min-width: 0;
+  flex: 1 1 auto;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  text-align: left;
+  background: transparent;
+  box-shadow: none;
   cursor: pointer;
+}
+
+.streamradio-picker-select:hover,
+.streamradio-picker-select:focus,
+.streamradio-picker-select:focus-visible {
+  background: transparent;
+  box-shadow: none;
 }
 
 .streamradio-picker-row:hover,

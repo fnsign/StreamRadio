@@ -1,5 +1,11 @@
 # StreamRadio Release Notes
 
+## Version 1.4.2
+
+### Improved
+
+- Favorites can now be deleted directly from the "Select station" list.
+
 ## Version 1.4.1
 
 ### Improved

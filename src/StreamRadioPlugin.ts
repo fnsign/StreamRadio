@@ -502,6 +502,29 @@ export default class StreamRadioPlugin extends Plugin {
     await this.saveSettings();
   }
 
+  async removeFavorite(stationUuid: string): Promise<void> {
+    const stationToRemove = this.settings.favorites.find((station) => station.stationuuid === stationUuid) || null;
+    const wasActiveStation = this.settings.activeStationId === stationUuid;
+    const wasPlayingRemovedStation = this.isPlaying && !!stationToRemove && this.getCurrentStation()?.stationuuid === stationUuid;
+    const favorites = this.settings.favorites.filter((station) => station.stationuuid !== stationUuid);
+
+    if (favorites.length === this.settings.favorites.length) {
+      return;
+    }
+
+    if (wasPlayingRemovedStation) {
+      this.stopPlayback();
+    }
+
+    this.settings.favorites = favorites;
+
+    if (wasActiveStation) {
+      this.settings.activeStationId = favorites[0]?.stationuuid || '';
+    }
+
+    await this.saveSettings();
+  }
+
   private async refreshFavoriteStationDetails(): Promise<void> {
     if (this.isRefreshingFavoriteStationDetails) {
       return;

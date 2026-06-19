@@ -285,8 +285,12 @@ export class StreamRadioSettingTab extends PluginSettingTab {
   }
 
   private async playFavoriteStation(station: FavoriteStation): Promise<void> {
+    const shouldStartPlayback = !this.plugin.getIsPlaying();
     await this.plugin.selectStation(station);
-    await this.plugin.playStation(station);
+    if (shouldStartPlayback) {
+      await this.plugin.playStation(station);
+    }
+
     this.renderSettings();
   }
 }

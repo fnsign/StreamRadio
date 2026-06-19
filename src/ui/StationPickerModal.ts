@@ -1,4 +1,5 @@
 import { App, Modal } from 'obsidian';
+import type { FavoriteStation } from '../types';
 import { ConfirmFavoriteRemovalModal } from './ConfirmFavoriteRemovalModal';
 import { renderFavoriteStationList } from './FavoriteStationList';
 import { StationSearchModal } from './StationSearchModal';
@@ -33,16 +34,18 @@ export class StationPickerModal extends Modal {
     this.contentEl.empty();
   }
 
+  private async playSelectedStation(station: FavoriteStation): Promise<void> {
+    this.close();
+    await this.plugin.playStation(station);
+  }
+
   private renderFavorites(): void {
     this.contentEl.empty();
 
     renderFavoriteStationList(this.contentEl, {
       plugin: this.plugin,
       listClassName: 'streamradio-picker-list',
-      onPlayStation: async (station) => {
-        this.close();
-        await this.plugin.playStation(station);
-      },
+      onPlayStation: (station) => this.playSelectedStation(station),
       onStopStation: () => {
         this.plugin.stopPlayback();
         this.renderFavorites();
@@ -53,10 +56,7 @@ export class StationPickerModal extends Modal {
           this.renderFavorites();
         }).open();
       },
-      onSelectStation: async (station) => {
-        this.close();
-        await this.plugin.playStation(station);
-      },
+      onSelectStation: (station) => this.playSelectedStation(station),
     });
   }
 }

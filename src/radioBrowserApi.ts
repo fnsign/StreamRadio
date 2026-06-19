@@ -10,6 +10,8 @@ export interface StationSearchResult {
   totalResults: number;
 }
 
+let facetsRequest: Promise<[RadioBrowserFacet[], RadioBrowserFacet[], RadioBrowserFacet[]]> | null = null;
+
 export async function fetchRadioBrowser<T>(path: string): Promise<T> {
   const response = await requestUrl({
     url: `${RADIO_BROWSER_BASE_URL}${path}`,
@@ -23,11 +25,16 @@ export async function fetchRadioBrowser<T>(path: string): Promise<T> {
 }
 
 export async function fetchRadioBrowserFacets(): Promise<[RadioBrowserFacet[], RadioBrowserFacet[], RadioBrowserFacet[]]> {
-  return Promise.all([
+  facetsRequest ??= Promise.all([
     fetchRadioBrowser<RadioBrowserFacet[]>('/countries'),
     fetchRadioBrowser<RadioBrowserFacet[]>('/languages'),
     fetchRadioBrowser<RadioBrowserFacet[]>('/tags'),
-  ]);
+  ]).catch((error: unknown) => {
+    facetsRequest = null;
+    throw error;
+  });
+
+  return facetsRequest;
 }
 
 export async function searchRadioBrowserStations(filters: SearchFilters, page: number): Promise<StationSearchResult> {
@@ -65,14 +72,15 @@ export async function fetchRadioBrowserStationsByUuid(stationUuids: string[]): P
 
 function createSearchQuery(filters: SearchFilters, limit: number, offset: number): URLSearchParams {
   const query = new URLSearchParams();
+  const name = filters.name.trim();
   query.set('hidebroken', 'true');
   query.set('order', 'clickcount');
   query.set('reverse', 'true');
   query.set('limit', String(limit));
   query.set('offset', String(offset));
 
-  if (filters.name.trim()) {
-    query.set('name', filters.name.trim());
+  if (name) {
+    query.set('name', name);
   }
   if (filters.country) {
     query.set('country', filters.country);

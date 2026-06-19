@@ -17,6 +17,8 @@ import { StreamRadioPlayerView } from './ui/StreamRadioPlayerView';
 import { StreamRadioSettingTab } from './ui/StreamRadioSettingTab';
 import { StationLogoResolver, createStationLogo } from './ui/stationLogo';
 
+const FAVORITE_DETAIL_REFRESH_BATCH_SIZE = 8;
+
 export default class StreamRadioPlugin extends Plugin {
   settings: StreamRadioSettings = DEFAULT_SETTINGS;
   private settingTab: StreamRadioSettingTab | null = null;
@@ -68,7 +70,7 @@ export default class StreamRadioPlugin extends Plugin {
   onunload(): void {
     this.icyMetadataService.stop();
     this.stopPlayback();
-    this.clearSleepTimer();
+    this.clearSleepTimer(false);
     this.clearPomodoroTimer();
     this.clearPomodoroBeeps();
     this.clearVolumeFade();
@@ -147,7 +149,9 @@ export default class StreamRadioPlugin extends Plugin {
 
   async setVolume(volume: number, persist = false): Promise<void> {
     const nextVolume = clampVolume(volume);
+    const previousVolume = this.settings.volume;
     const previousMuted = this.settings.muted;
+    const previousLastVolume = this.settings.lastVolume;
 
     if (nextVolume <= 0) {
       if (this.settings.volume > 0) {
@@ -160,6 +164,11 @@ export default class StreamRadioPlugin extends Plugin {
       this.settings.muted = false;
     }
 
+    const didChange = previousVolume !== this.settings.volume || previousMuted !== this.settings.muted || previousLastVolume !== this.settings.lastVolume;
+    if (!didChange) {
+      return;
+    }
+
     this.applyAudioVolume();
 
     if (previousMuted !== this.settings.muted) {
@@ -167,7 +176,7 @@ export default class StreamRadioPlugin extends Plugin {
     }
 
     if (persist) {
-      await this.saveSettings();
+      await this.saveSettings(false);
     }
   }
 
@@ -188,7 +197,7 @@ export default class StreamRadioPlugin extends Plugin {
     this.refreshPlayerViews();
 
     if (persist) {
-      await this.saveSettings();
+      await this.saveSettings(false);
     }
   }
 
@@ -222,7 +231,8 @@ export default class StreamRadioPlugin extends Plugin {
 
   togglePomodoroVisibility(): void {
     this.settings.pomodoroHidden = !this.settings.pomodoroHidden;
-    void this.saveSettings();
+    this.refreshPomodoroViews();
+    void this.saveSettings(false);
   }
 
   getIsPomodoroDisplayDimmed(session = this.getPomodoroSession()): boolean {
@@ -244,7 +254,8 @@ export default class StreamRadioPlugin extends Plugin {
       this.pomodoroAutoDimSuppressed = false;
     }
 
-    void this.saveSettings();
+    this.refreshPomodoroViews();
+    void this.saveSettings(false);
   }
 
   private shouldAutoDimPomodoro(session: PomodoroSessionState): boolean {
@@ -402,7 +413,7 @@ export default class StreamRadioPlugin extends Plugin {
   }
 
   startSleepTimer(minutes: number): void {
-    this.clearSleepTimer();
+    this.clearSleepTimer(false);
 
     const safeMinutes = Math.max(1, Math.floor(minutes));
     this.sleepTimerEndsAt = Date.now() + safeMinutes * 60000;
@@ -418,7 +429,7 @@ export default class StreamRadioPlugin extends Plugin {
     this.refreshPlayerViews();
   }
 
-  clearSleepTimer(): void {
+  clearSleepTimer(refresh = true): void {
     if (this.sleepTimerId !== null) {
       window.clearTimeout(this.sleepTimerId);
     }
@@ -429,7 +440,9 @@ export default class StreamRadioPlugin extends Plugin {
     this.sleepTimerId = null;
     this.sleepTimerRefreshId = null;
     this.sleepTimerEndsAt = 0;
-    this.refreshPlayerViews();
+    if (refresh) {
+      this.refreshPlayerViews();
+    }
   }
 
   getPomodoroSession(): PomodoroSessionState {
@@ -537,7 +550,11 @@ export default class StreamRadioPlugin extends Plugin {
 
     this.isRefreshingFavoriteStationDetails = true;
     try {
-      const updatedStations = await fetchRadioBrowserStationsByUuid(favoritesToRefresh.map((station) => station.stationuuid));
+      const updatedStations: FavoriteStation[] = [];
+      for (let index = 0; index < favoritesToRefresh.length; index += FAVORITE_DETAIL_REFRESH_BATCH_SIZE) {
+        const batch = favoritesToRefresh.slice(index, index + FAVORITE_DETAIL_REFRESH_BATCH_SIZE);
+        updatedStations.push(...await fetchRadioBrowserStationsByUuid(batch.map((station) => station.stationuuid)));
+      }
       const updatedStationsById = new Map(updatedStations.map((station) => [station.stationuuid, station]));
       let didUpdate = false;
       const favorites = this.settings.favorites.map((station) => {
@@ -566,41 +583,29 @@ export default class StreamRadioPlugin extends Plugin {
   }
 
   refreshPlayerViews(): void {
-    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_STREAMRADIO)) {
-      if (leaf.view instanceof StreamRadioPlayerView) {
-        leaf.view.render();
-      }
-    }
+    this.forEachPlayerView((view) => view.render());
   }
 
   refreshPomodoroViews(): void {
-    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_STREAMRADIO)) {
-      if (leaf.view instanceof StreamRadioPlayerView) {
-        leaf.view.updatePomodoroDisplay();
-      }
-    }
+    this.refreshPomodoroDisplays();
   }
 
   refreshPlayerPlaybackViews(): void {
-    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_STREAMRADIO)) {
-      if (leaf.view instanceof StreamRadioPlayerView) {
-        leaf.view.updatePlaybackDisplay();
-      }
-    }
+    this.forEachPlayerView((view) => view.updatePlaybackDisplay());
   }
 
   refreshPlayerMetadataViews(): void {
-    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_STREAMRADIO)) {
-      if (leaf.view instanceof StreamRadioPlayerView) {
-        leaf.view.updateMetadataDisplay();
-      }
-    }
+    this.forEachPlayerView((view) => view.updateMetadataDisplay());
   }
 
   refreshPomodoroDisplays(): void {
+    this.forEachPlayerView((view) => view.updatePomodoroDisplay());
+  }
+
+  private forEachPlayerView(callback: (view: StreamRadioPlayerView) => void): void {
     for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE_STREAMRADIO)) {
       if (leaf.view instanceof StreamRadioPlayerView) {
-        leaf.view.updatePomodoroDisplay();
+        callback(leaf.view);
       }
     }
   }

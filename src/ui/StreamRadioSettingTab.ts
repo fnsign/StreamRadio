@@ -54,6 +54,10 @@ export class StreamRadioSettingTab extends PluginSettingTab {
       attr: { type: 'button' },
     });
     button.addEventListener('click', () => {
+      if (this.activeSection === section) {
+        return;
+      }
+
       this.activeSection = section;
       this.renderSettings();
     });
@@ -79,6 +83,10 @@ export class StreamRadioSettingTab extends PluginSettingTab {
         toggle
           .setValue(this.plugin.settings.showStationLogos)
           .onChange((value) => {
+            if (this.plugin.settings.showStationLogos === value) {
+              return;
+            }
+
             this.plugin.settings.showStationLogos = value;
             void this.plugin.saveSettings();
           });
@@ -109,6 +117,10 @@ export class StreamRadioSettingTab extends PluginSettingTab {
         toggle
           .setValue(this.plugin.settings.pomodoroEnabled)
           .onChange((value) => {
+            if (this.plugin.settings.pomodoroEnabled === value) {
+              return;
+            }
+
             this.plugin.settings.pomodoroEnabled = value;
             void this.plugin.saveSettings();
           });
@@ -153,7 +165,13 @@ export class StreamRadioSettingTab extends PluginSettingTab {
           return;
         }
 
-        this.plugin.settings[key] = clampInteger(parsed, fallback, min, max);
+        const nextValue = clampInteger(parsed, fallback, min, max);
+        if (this.plugin.settings[key] === nextValue) {
+          text.setValue(String(nextValue));
+          return;
+        }
+
+        this.plugin.settings[key] = nextValue;
         await this.plugin.saveSettings();
         text.setValue(String(this.plugin.settings[key]));
       };
@@ -195,7 +213,12 @@ export class StreamRadioSettingTab extends PluginSettingTab {
       picker
         .setValue(String(this.plugin.settings[key] || fallback))
         .onChange((value) => {
-          this.plugin.settings[key] = sanitizeColor(value, fallback);
+          const nextValue = sanitizeColor(value, fallback);
+          if (this.plugin.settings[key] === nextValue) {
+            return;
+          }
+
+          this.plugin.settings[key] = nextValue;
           void this.plugin.saveSettings();
         });
     });
@@ -222,6 +245,10 @@ export class StreamRadioSettingTab extends PluginSettingTab {
         toggle
           .setValue(this.plugin.settings.pomodoroReducedDistractionEnabled)
           .onChange((value) => {
+            if (this.plugin.settings.pomodoroReducedDistractionEnabled === value) {
+              return;
+            }
+
             this.plugin.settings.pomodoroReducedDistractionEnabled = value;
             void this.plugin.saveSettings().then(() => {
               this.renderSettings();
@@ -245,7 +272,12 @@ export class StreamRadioSettingTab extends PluginSettingTab {
         .setLimits(5, 100, 5)
         .setValue(this.plugin.settings.pomodoroDimFactor)
         .onChange((value) => {
-          this.plugin.settings.pomodoroDimFactor = clampPercentage(value, DEFAULT_SETTINGS.pomodoroDimFactor);
+          const nextValue = clampPercentage(value, DEFAULT_SETTINGS.pomodoroDimFactor);
+          if (this.plugin.settings.pomodoroDimFactor === nextValue) {
+            return;
+          }
+
+          this.plugin.settings.pomodoroDimFactor = nextValue;
           dimSetting.setName(`Dim factor (${this.plugin.settings.pomodoroDimFactor}%)`);
           void this.plugin.saveSettings();
         });

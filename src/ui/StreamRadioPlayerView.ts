@@ -66,7 +66,12 @@ export class StreamRadioPlayerView extends ItemView {
       return;
     }
 
-    textEl.setText(this.plugin.getMetadataLabel());
+    const metadataLabel = this.plugin.getMetadataLabel();
+    if (textEl.textContent === metadataLabel) {
+      return;
+    }
+
+    textEl.setText(metadataLabel);
     this.cancelMetadataScroll?.();
     this.cancelMetadataScroll = null;
     this.setupMetadataScroller(metadataLine);
@@ -249,18 +254,27 @@ export class StreamRadioPlayerView extends ItemView {
 
     const volumeButton = container.querySelector<HTMLButtonElement>('.streamradio-volume-icon-button');
     if (volumeButton) {
-      volumeButton.classList.toggle('is-muted', this.plugin.getIsMuted());
-      volumeButton.setAttr('aria-label', this.plugin.getIsMuted() ? 'Unmute stream' : 'Mute stream');
-      volumeButton.setAttr('aria-pressed', String(this.plugin.getIsMuted()));
-      setIcon(volumeButton, this.plugin.getVolumeIconName());
+      const isMuted = this.plugin.getIsMuted();
+      const iconName = this.plugin.getVolumeIconName();
+      volumeButton.classList.toggle('is-muted', isMuted);
+      volumeButton.setAttr('aria-label', isMuted ? 'Unmute stream' : 'Mute stream');
+      volumeButton.setAttr('aria-pressed', String(isMuted));
+      if (volumeButton.dataset.icon !== iconName) {
+        volumeButton.dataset.icon = iconName;
+        setIcon(volumeButton, iconName);
+      }
     }
   }
 
   private updateActivePlayButton(button: HTMLButtonElement, isActive: boolean, label: string): void {
+    const iconName = isActive ? 'square' : 'play';
     button.classList.toggle('is-active-playback', isActive);
     button.style.setProperty('--streamradio-active-control-color', this.plugin.settings.pomodoroTimerColor);
     button.setAttr('aria-label', label);
-    setIcon(button, isActive ? 'square' : 'play');
+    if (button.dataset.icon !== iconName) {
+      button.dataset.icon = iconName;
+      setIcon(button, iconName);
+    }
   }
 
   private renderSelectionButton(container: HTMLElement): void {

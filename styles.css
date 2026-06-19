@@ -215,6 +215,11 @@
   gap: var(--size-2-2);
 }
 
+.streamradio-pagination {
+  justify-content: center;
+  width: 100%;
+}
+
 .streamradio-controls {
   flex-wrap: wrap;
   justify-content: center;
@@ -629,7 +634,10 @@ button.streamradio-save-button:active {
 }
 
 .streamradio-pagination {
+  display: flex;
   justify-content: center;
+  align-items: center;
+  width: 100%;
   margin-top: var(--size-4-3);
 }
 

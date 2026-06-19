@@ -9,6 +9,8 @@
 ### Improved
 
 - The preview mutes the currently running stream and resumes when the search window has been closed again (works for custom stations, too)
+- Fixed double error messages
+- Improved compatibility with a few high bit rate streams
 
 ## Version 1.5.1
 

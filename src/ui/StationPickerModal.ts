@@ -44,6 +44,7 @@ export class StationPickerModal extends Modal {
 
     renderFavoriteStationList(this.contentEl, {
       plugin: this.plugin,
+      draggable: true,
       listClassName: 'streamradio-picker-list',
       onPlayStation: (station) => this.playSelectedStation(station),
       onStopStation: () => {
@@ -57,6 +58,10 @@ export class StationPickerModal extends Modal {
         }).open();
       },
       onSelectStation: (station) => this.playSelectedStation(station),
+      onReorderFavorites: async (favorites) => {
+        await this.plugin.saveFavorites(favorites);
+        this.renderFavorites();
+      },
     });
   }
 }

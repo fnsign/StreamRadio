@@ -317,6 +317,9 @@ export class StationSearchModal extends Modal {
     }
 
     this.stopPreview();
+    if (this.plugin.getIsPlaying()) {
+      this.plugin.stopPlayback();
+    }
     const audio = new Audio(station.streamUrl);
     audio.preload = 'none';
     audio.addEventListener('error', () => {

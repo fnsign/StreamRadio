@@ -1,5 +1,11 @@
 # StreamRadio Release Notes
 
+## Version 1.5.2
+
+### Added
+
+- The station search now shows a connected Radio Browser server status and how many stations are available.
+
 ## Version 1.5.1
 
 ### Fixed

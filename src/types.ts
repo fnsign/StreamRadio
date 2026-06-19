@@ -73,6 +73,10 @@ export interface RadioBrowserFacet {
   stationcount?: number;
 }
 
+export interface RadioBrowserServerStats {
+  stations?: number;
+}
+
 export interface SearchFilters {
   name: string;
   country: string;

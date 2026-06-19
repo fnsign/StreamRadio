@@ -1,5 +1,5 @@
 import { App, ButtonComponent, DropdownComponent, Modal, Notice, TextComponent, setIcon } from 'obsidian';
-import { fetchRadioBrowserFacets, searchRadioBrowserStations } from '../radioBrowserApi';
+import { fetchRadioBrowserFacets, fetchRadioBrowserServerStats, searchRadioBrowserStations } from '../radioBrowserApi';
 import { bitrateLabel, normalizeFacetName, stationFormat } from '../stationUtils';
 import type { FavoriteStation, RadioBrowserFacet, SearchFilters } from '../types';
 import type { StreamRadioPluginApi } from './pluginTypes';
@@ -25,6 +25,8 @@ export class StationSearchModal extends Modal {
   private countryDropdown: DropdownComponent | null = null;
   private languageDropdown: DropdownComponent | null = null;
   private tagDropdown: DropdownComponent | null = null;
+  private serverStatusEl: HTMLElement | null = null;
+  private serverStationsCount = 0;
   private resultsEl: HTMLElement | null = null;
   private paginationEl: HTMLElement | null = null;
   private previewAudio: HTMLAudioElement | null = null;
@@ -78,6 +80,9 @@ export class StationSearchModal extends Modal {
     });
 
     const actionRow = this.contentEl.createDiv({ cls: 'streamradio-modal-actions' });
+    this.serverStatusEl = actionRow.createDiv({ cls: 'streamradio-server-status' });
+    this.renderServerStatus('hidden');
+
     new ButtonComponent(actionRow)
       .setButtonText('Search')
       .setCta()
@@ -120,18 +125,60 @@ export class StationSearchModal extends Modal {
     this.tagDropdown = null;
     this.resultsEl = null;
     this.paginationEl = null;
+    this.serverStatusEl = null;
     this.contentEl.empty();
   }
 
   private async loadFacets(): Promise<void> {
+    void this.checkServerConnection();
+
     try {
       const [countries, languages, tags] = await fetchRadioBrowserFacets();
       this.populateDropdown(this.countryDropdown, countries, 'Any country');
       this.populateDropdown(this.languageDropdown, languages, 'Any language');
       this.populateDropdown(this.tagDropdown, tags, 'Any tag');
     } catch {
-      new Notice('StreamRadio could not load search filters.');
+      this.renderServerStatus('disconnected');
     }
+  }
+
+  private async checkServerConnection(): Promise<void> {
+    try {
+      const stats = await fetchRadioBrowserServerStats();
+      this.serverStationsCount = stats.stations || 0;
+      this.renderServerStatus('connected', this.serverStationsCount);
+    } catch {
+      this.serverStationsCount = 0;
+      this.renderServerStatus('disconnected', this.serverStationsCount);
+    }
+  }
+
+  private renderServerStatus(status: 'hidden' | 'connected' | 'disconnected', totalStations = 0): void {
+    if (!this.serverStatusEl) {
+      return;
+    }
+
+    this.serverStatusEl.empty();
+    this.serverStatusEl.toggleClass('is-connected', status === 'connected');
+    this.serverStatusEl.toggleClass('is-disconnected', status === 'disconnected');
+    this.serverStatusEl.toggleClass('is-hidden', status === 'hidden');
+
+    if (status === 'hidden') {
+      return;
+    }
+
+    this.serverStatusEl.createSpan({ cls: 'streamradio-server-status-indicator' });
+    this.serverStatusEl.createSpan({ cls: 'streamradio-server-status-text', text: status === 'connected' ? 'Server connected.' : 'Server not connected. Try again later.' });
+    this.serverStatusEl.createSpan({ cls: 'streamradio-server-status-count', text: `${totalStations.toLocaleString()} stations available.` });
+
+    const refreshButton = this.serverStatusEl.createEl('button', {
+      cls: 'clickable-icon streamradio-icon-button streamradio-server-status-refresh',
+      attr: { type: 'button', 'aria-label': 'Refresh server status' },
+    });
+    setIcon(refreshButton, 'refresh-cw');
+    refreshButton.addEventListener('click', () => {
+      void this.checkServerConnection();
+    });
   }
 
   private populateDropdown(dropdown: DropdownComponent | null, facets: RadioBrowserFacet[], emptyLabel: string): void {
@@ -181,7 +228,7 @@ export class StationSearchModal extends Modal {
       }
 
       this.resultsEl.empty();
-      this.resultsEl.createDiv({ cls: 'streamradio-empty-state', text: 'Search failed. Try again later.' });
+      this.resultsEl.createDiv({ cls: 'streamradio-empty-state', text: 'Search failed.' });
     }
   }
 

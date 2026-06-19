@@ -1,7 +1,7 @@
 import { requestUrl } from 'obsidian';
 import { RADIO_BROWSER_BASE_URL, SEARCH_COUNT_LIMIT, SEARCH_PAGE_SIZE } from './constants';
 import { toFavoriteStation } from './stationUtils';
-import type { FavoriteStation, RadioBrowserFacet, RadioBrowserStation, SearchFilters } from './types';
+import type { FavoriteStation, RadioBrowserFacet, RadioBrowserServerStats, RadioBrowserStation, SearchFilters } from './types';
 
 export interface StationSearchResult {
   stations: FavoriteStation[];
@@ -35,6 +35,10 @@ export async function fetchRadioBrowserFacets(): Promise<[RadioBrowserFacet[], R
   });
 
   return facetsRequest;
+}
+
+export async function fetchRadioBrowserServerStats(): Promise<RadioBrowserServerStats> {
+  return fetchRadioBrowser<RadioBrowserServerStats>(`/stats?_=${Date.now()}`);
 }
 
 export async function searchRadioBrowserStations(filters: SearchFilters, page: number, knownTotalResults?: number): Promise<StationSearchResult> {

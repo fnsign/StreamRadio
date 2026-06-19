@@ -349,6 +349,18 @@ export default class StreamRadioPlugin extends Plugin {
     }
 
     const audio = new Audio(station.streamUrl);
+    let playbackFailureHandled = false;
+    const handlePlaybackFailure = (message: string): void => {
+      if (playbackFailureHandled) {
+        return;
+      }
+
+      playbackFailureHandled = true;
+      this.isPlaying = false;
+      this.icyMetadataService.stop();
+      this.refreshPlayerPlaybackViews();
+      new Notice(message);
+    };
     audio.preload = 'none';
     audio.volume = this.getEffectiveVolume();
     audio.addEventListener('ended', () => {
@@ -371,10 +383,7 @@ export default class StreamRadioPlugin extends Plugin {
     });
     audio.addEventListener('error', () => {
       if (this.audio === audio) {
-        this.isPlaying = false;
-        this.icyMetadataService.stop();
-        this.refreshPlayerPlaybackViews();
-        new Notice(`Could not play ${station.name}.`);
+        handlePlaybackFailure(`Could not play ${station.name}.`);
       }
     });
 
@@ -387,10 +396,7 @@ export default class StreamRadioPlugin extends Plugin {
       await this.saveSettings(false);
       this.refreshPlayerPlaybackViews();
     } catch {
-      this.isPlaying = false;
-      this.icyMetadataService.stop();
-      this.refreshPlayerPlaybackViews();
-      new Notice(`Could not start ${station.name}.`);
+      handlePlaybackFailure(`Could not start ${station.name}.`);
     }
   }
 

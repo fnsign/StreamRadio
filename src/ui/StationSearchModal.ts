@@ -328,12 +328,21 @@ export class StationSearchModal extends Modal {
     }
 
     const audio = new Audio(station.streamUrl);
+    let previewFailureHandled = false;
+    const handlePreviewFailure = (): void => {
+      if (previewFailureHandled) {
+        return;
+      }
+
+      previewFailureHandled = true;
+      this.stopPreview();
+      this.updatePreviewButtons();
+      new Notice(`Could not preview ${station.name}.`);
+    };
     audio.preload = 'none';
     audio.addEventListener('error', () => {
       if (this.previewAudio === audio) {
-        this.stopPreview();
-        this.updatePreviewButtons();
-        new Notice(`Could not preview ${station.name}.`);
+        handlePreviewFailure();
       }
     });
     this.previewAudio = audio;
@@ -343,9 +352,7 @@ export class StationSearchModal extends Modal {
     try {
       await audio.play();
     } catch {
-      this.stopPreview();
-      this.updatePreviewButtons();
-      new Notice(`Could not preview ${station.name}.`);
+      handlePreviewFailure();
     }
   }
 
@@ -567,12 +574,21 @@ class CustomStationModal extends Modal {
       this.shouldResumePlaybackOnClose = true;
     }
     const audio = new Audio(streamUrl);
+    let previewFailureHandled = false;
+    const handlePreviewFailure = (): void => {
+      if (previewFailureHandled) {
+        return;
+      }
+
+      previewFailureHandled = true;
+      this.stopPreview();
+      this.updatePreviewButton(streamUrlValue);
+      new Notice(`Could not preview ${name.trim() || 'custom stream'}.`);
+    };
     audio.preload = 'none';
     audio.addEventListener('error', () => {
       if (this.previewAudio === audio) {
-        this.stopPreview();
-        this.updatePreviewButton(streamUrlValue);
-        new Notice(`Could not preview ${name.trim() || 'custom stream'}.`);
+        handlePreviewFailure();
       }
     });
     this.previewAudio = audio;
@@ -582,9 +598,7 @@ class CustomStationModal extends Modal {
     try {
       await audio.play();
     } catch {
-      this.stopPreview();
-      this.updatePreviewButton(streamUrlValue);
-      new Notice(`Could not preview ${name.trim() || 'custom stream'}.`);
+      handlePreviewFailure();
     }
   }
 

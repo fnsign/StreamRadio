@@ -30,6 +30,7 @@ export interface StreamRadioPluginApi extends Plugin {
   playPreviousStation(): Promise<void>;
   playStation(station: FavoriteStation): Promise<void>;
   pausePlayback(): void;
+  resumePlaybackWithFade(durationMs?: number): Promise<void>;
   stopPlayback(): void;
   startSleepTimer(minutes: number): void;
   clearSleepTimer(refresh?: boolean): void;

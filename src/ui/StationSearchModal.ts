@@ -31,6 +31,7 @@ export class StationSearchModal extends Modal {
   private paginationEl: HTMLElement | null = null;
   private previewAudio: HTMLAudioElement | null = null;
   private previewStationId = '';
+  private shouldResumePlaybackOnClose = false;
   private searchRequestId = 0;
 
   constructor(app: App, private plugin: StreamRadioPluginApi, private onSaved: () => void) {
@@ -120,6 +121,10 @@ export class StationSearchModal extends Modal {
   onClose(): void {
     this.searchRequestId += 1;
     this.stopPreview();
+    if (this.shouldResumePlaybackOnClose) {
+      this.shouldResumePlaybackOnClose = false;
+      void this.plugin.resumePlaybackWithFade();
+    }
     this.countryDropdown = null;
     this.languageDropdown = null;
     this.tagDropdown = null;
@@ -317,9 +322,11 @@ export class StationSearchModal extends Modal {
     }
 
     this.stopPreview();
-    if (this.plugin.getIsPlaying()) {
-      this.plugin.stopPlayback();
+    if (!this.shouldResumePlaybackOnClose && this.plugin.getIsPlaying()) {
+      this.plugin.pausePlayback();
+      this.shouldResumePlaybackOnClose = true;
     }
+
     const audio = new Audio(station.streamUrl);
     audio.preload = 'none';
     audio.addEventListener('error', () => {
@@ -367,7 +374,7 @@ export class StationSearchModal extends Modal {
     }
   }
 
-  private stopPreview(): void {
+  private stopPreview(restorePlayback = true): void {
     if (this.previewAudio) {
       this.previewAudio.pause();
       this.previewAudio.removeAttribute('src');
@@ -399,6 +406,7 @@ class CustomStationModal extends Modal {
   private previewAudio: HTMLAudioElement | null = null;
   private previewButton: HTMLButtonElement | null = null;
   private isPreviewing = false;
+  private shouldResumePlaybackOnClose = false;
 
   constructor(app: App, private plugin: StreamRadioPluginApi, private onSaved: (station: FavoriteStation) => void) {
     super(app);
@@ -456,6 +464,10 @@ class CustomStationModal extends Modal {
 
   onClose(): void {
     this.stopPreview();
+    if (this.shouldResumePlaybackOnClose) {
+      this.shouldResumePlaybackOnClose = false;
+      void this.plugin.resumePlaybackWithFade();
+    }
     this.contentEl.empty();
   }
 
@@ -550,6 +562,10 @@ class CustomStationModal extends Modal {
     }
 
     this.stopPreview();
+    if (!this.shouldResumePlaybackOnClose && this.plugin.getIsPlaying()) {
+      this.plugin.pausePlayback();
+      this.shouldResumePlaybackOnClose = true;
+    }
     const audio = new Audio(streamUrl);
     audio.preload = 'none';
     audio.addEventListener('error', () => {

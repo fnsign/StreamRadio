@@ -404,6 +404,34 @@ export default class StreamRadioPlugin extends Plugin {
     this.refreshPlayerPlaybackViews();
   }
 
+  async resumePlaybackWithFade(durationMs = 1000): Promise<void> {
+    const station = this.getCurrentStation();
+    if (!this.audio || this.isPlaying || !station?.streamUrl) {
+      return;
+    }
+
+    const targetMultiplier = this.isPomodoroVolumeDucked ? 0.15 : 1;
+    this.volumeFadeToken += 1;
+    this.clearVolumeFade();
+    this.volumeFadeMultiplier = 0;
+    this.applyAudioVolume();
+
+    try {
+      await this.audio.play();
+      this.isPlaying = true;
+      this.icyMetadataService.start(station.streamUrl);
+      this.refreshPlayerPlaybackViews();
+      this.startVolumeFade(targetMultiplier, durationMs);
+    } catch {
+      this.volumeFadeMultiplier = targetMultiplier;
+      this.applyAudioVolume();
+      this.isPlaying = false;
+      this.icyMetadataService.stop();
+      this.refreshPlayerPlaybackViews();
+      new Notice(`Could not resume ${station.name}.`);
+    }
+  }
+
   stopPlayback(): void {
     this.cancelPomodoroVolumeDuck(false);
     this.icyMetadataService.stop();

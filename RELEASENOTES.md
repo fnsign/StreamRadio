@@ -6,6 +6,10 @@
 
 - The station search now shows a connected Radio Browser server status and how many stations are available.
 
+### Improved
+
+- The preview mutes the currently running stream and resumes when the search window has been closed again (works for custom stations, too)
+
 ## Version 1.5.1
 
 ### Fixed

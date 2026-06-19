@@ -15,6 +15,7 @@ export class StationSearchModal extends Modal {
   private filters: SearchFilters = { name: '', country: '', language: '', tag: '' };
   private selected = new Map<string, FavoriteStation>();
   private results: FavoriteStation[] = [];
+  private resultsById = new Map<string, FavoriteStation>();
   private page = 0;
   private hasNextPage = false;
   private totalPages = 1;
@@ -26,6 +27,7 @@ export class StationSearchModal extends Modal {
   private paginationEl: HTMLElement | null = null;
   private previewAudio: HTMLAudioElement | null = null;
   private previewStationId = '';
+  private searchRequestId = 0;
 
   constructor(app: App, private plugin: StreamRadioPluginApi, private onSaved: () => void) {
     super(app);
@@ -105,7 +107,13 @@ export class StationSearchModal extends Modal {
   }
 
   onClose(): void {
+    this.searchRequestId += 1;
     this.stopPreview();
+    this.countryDropdown = null;
+    this.languageDropdown = null;
+    this.tagDropdown = null;
+    this.resultsEl = null;
+    this.paginationEl = null;
     this.contentEl.empty();
   }
 
@@ -142,17 +150,28 @@ export class StationSearchModal extends Modal {
     }
 
     this.stopPreview();
+    const requestId = this.searchRequestId + 1;
+    this.searchRequestId = requestId;
     this.resultsEl.empty();
     this.resultsEl.createDiv({ cls: 'streamradio-empty-state', text: 'Searching...' });
 
     try {
       const result = await searchRadioBrowserStations(this.filters, this.page);
+      if (requestId !== this.searchRequestId) {
+        return;
+      }
+
       this.hasNextPage = result.hasNextPage;
       this.totalResults = result.totalResults;
       this.totalPages = result.totalPages;
       this.results = result.stations;
+      this.resultsById = new Map(result.stations.map((station) => [station.stationuuid, station]));
       this.renderResults();
     } catch {
+      if (requestId !== this.searchRequestId) {
+        return;
+      }
+
       this.resultsEl.empty();
       this.resultsEl.createDiv({ cls: 'streamradio-empty-state', text: 'Search failed. Try again later.' });
     }
@@ -271,7 +290,7 @@ export class StationSearchModal extends Modal {
     }
 
     for (const button of Array.from(this.resultsEl.querySelectorAll<HTMLButtonElement>('.streamradio-preview-button'))) {
-      const station = this.results.find((result) => result.stationuuid === button.dataset.stationId);
+      const station = this.resultsById.get(button.dataset.stationId || '');
       if (station) {
         this.updatePreviewButton(button, station);
       }
@@ -280,10 +299,14 @@ export class StationSearchModal extends Modal {
 
   private updatePreviewButton(button: HTMLButtonElement, station: FavoriteStation): void {
     const isPreviewing = this.previewStationId === station.stationuuid;
+    const iconName = isPreviewing ? 'square' : 'play';
     button.classList.toggle('is-active-playback', isPreviewing);
     button.style.setProperty('--streamradio-active-control-color', this.plugin.settings.pomodoroTimerColor);
     button.setAttr('aria-label', isPreviewing ? `Stop preview for ${station.name}` : `Preview ${station.name}`);
-    setIcon(button, isPreviewing ? 'square' : 'play');
+    if (button.dataset.icon !== iconName) {
+      button.dataset.icon = iconName;
+      setIcon(button, iconName);
+    }
   }
 
   private stopPreview(): void {
@@ -497,11 +520,15 @@ class CustomStationModal extends Modal {
     }
 
     const isValidPreviewUrl = Boolean(normalizeHttpUrl(streamUrlValue));
+    const iconName = this.isPreviewing ? 'square' : 'play';
     this.previewButton.disabled = !isValidPreviewUrl;
     this.previewButton.classList.toggle('is-active-playback', this.isPreviewing);
     this.previewButton.style.setProperty('--streamradio-active-control-color', this.plugin.settings.pomodoroTimerColor);
     this.previewButton.setAttr('aria-label', this.isPreviewing ? 'Stop custom stream preview' : 'Preview custom stream');
-    setIcon(this.previewButton, this.isPreviewing ? 'square' : 'play');
+    if (this.previewButton.dataset.icon !== iconName) {
+      this.previewButton.dataset.icon = iconName;
+      setIcon(this.previewButton, iconName);
+    }
   }
 
   private stopPreview(): void {

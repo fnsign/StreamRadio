@@ -32,7 +32,7 @@ export interface StreamRadioPluginApi extends Plugin {
   pausePlayback(): void;
   stopPlayback(): void;
   startSleepTimer(minutes: number): void;
-  clearSleepTimer(): void;
+  clearSleepTimer(refresh?: boolean): void;
   getPomodoroSession(): PomodoroSessionState;
   togglePomodoro(): void;
   resetCurrentPomodoroInterval(): void;

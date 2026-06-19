@@ -1,10 +1,19 @@
 # StreamRadio Release Notes
 
+## Version 1.4.3
+
+### Improved
+
+- Deleting a favorite from the settings list now shows a confirmation dialog.
+- The "Select station" list now reuses the same favorites list UI as the settings page for a more consistent experience.
+
 ## Version 1.4.2
 
 ### Improved
 
 - Favorites can now be deleted directly from the "Select station" list.
+- Deleting a favorite from the settings list now shows a confirmation dialog.
+- The "Select station" list now reuses the same favorites list UI as the settings page for a more consistent experience.
 
 ## Version 1.4.1
 

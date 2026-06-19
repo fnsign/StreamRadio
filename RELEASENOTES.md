@@ -1,9 +1,12 @@
 # StreamRadio Release Notes
 
-## Version 1.4.3
+## Version 1.5.0
 
 ### Improved
 
+- Re-factored and optimized the code for efficiency
+- Improved overall UI/UX issues
+- Radio and Pomodoro controls do not flicker anymore
 - Deleting a favorite from the settings list now shows a confirmation dialog.
 - The "Select station" list now reuses the same favorites list UI as the settings page for a more consistent experience.
 

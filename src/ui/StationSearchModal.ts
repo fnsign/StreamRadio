@@ -13,6 +13,7 @@ interface CustomStationDraft {
 
 export class StationSearchModal extends Modal {
   private filters: SearchFilters = { name: '', country: '', language: '', tag: '' };
+  private activeFilters: SearchFilters = { name: '', country: '', language: '', tag: '' };
   private selected = new Map<string, FavoriteStation>();
   private results: FavoriteStation[] = [];
   private resultsById = new Map<string, FavoriteStation>();
@@ -20,6 +21,7 @@ export class StationSearchModal extends Modal {
   private hasNextPage = false;
   private totalPages = 1;
   private totalResults = 0;
+  private searchTotalsKnown = false;
   private countryDropdown: DropdownComponent | null = null;
   private languageDropdown: DropdownComponent | null = null;
   private tagDropdown: DropdownComponent | null = null;
@@ -54,6 +56,8 @@ export class StationSearchModal extends Modal {
 
       event.preventDefault();
       this.page = 0;
+      this.activeFilters = { ...this.filters };
+      this.searchTotalsKnown = false;
       void this.search();
     });
 
@@ -79,6 +83,8 @@ export class StationSearchModal extends Modal {
       .setCta()
       .onClick(() => {
         this.page = 0;
+        this.activeFilters = { ...this.filters };
+        this.searchTotalsKnown = false;
         void this.search();
       });
 
@@ -156,7 +162,8 @@ export class StationSearchModal extends Modal {
     this.resultsEl.createDiv({ cls: 'streamradio-empty-state', text: 'Searching...' });
 
     try {
-      const result = await searchRadioBrowserStations(this.filters, this.page);
+      const knownTotalResults = this.searchTotalsKnown ? this.totalResults : undefined;
+      const result = await searchRadioBrowserStations(this.activeFilters, this.page, knownTotalResults);
       if (requestId !== this.searchRequestId) {
         return;
       }
@@ -164,6 +171,7 @@ export class StationSearchModal extends Modal {
       this.hasNextPage = result.hasNextPage;
       this.totalResults = result.totalResults;
       this.totalPages = result.totalPages;
+      this.searchTotalsKnown = true;
       this.results = result.stations;
       this.resultsById = new Map(result.stations.map((station) => [station.stationuuid, station]));
       this.renderResults();

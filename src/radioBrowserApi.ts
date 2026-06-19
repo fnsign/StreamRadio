@@ -37,15 +37,15 @@ export async function fetchRadioBrowserFacets(): Promise<[RadioBrowserFacet[], R
   return facetsRequest;
 }
 
-export async function searchRadioBrowserStations(filters: SearchFilters, page: number): Promise<StationSearchResult> {
+export async function searchRadioBrowserStations(filters: SearchFilters, page: number, knownTotalResults?: number): Promise<StationSearchResult> {
   const pageQuery = createSearchQuery(filters, SEARCH_PAGE_SIZE + 1, page * SEARCH_PAGE_SIZE);
-  const countQuery = createSearchQuery(filters, SEARCH_COUNT_LIMIT, 0);
+  const countQuery = knownTotalResults === undefined ? createSearchQuery(filters, SEARCH_COUNT_LIMIT, 0) : null;
   const [stations, countStations] = await Promise.all([
     fetchRadioBrowser<RadioBrowserStation[]>(`/stations/search?${pageQuery.toString()}`),
-    fetchRadioBrowser<RadioBrowserStation[]>(`/stations/search?${countQuery.toString()}`),
+    countQuery ? fetchRadioBrowser<RadioBrowserStation[]>(`/stations/search?${countQuery.toString()}`) : Promise.resolve(null),
   ]);
   const playableStations = stations.map(toFavoriteStation).filter((station) => station.streamUrl);
-  const totalResults = countStations.filter((station) => station.url_resolved || station.url).length;
+  const totalResults = knownTotalResults ?? countStations?.filter((station) => station.url_resolved || station.url).length ?? 0;
 
   return {
     stations: playableStations.slice(0, SEARCH_PAGE_SIZE),

@@ -1,5 +1,11 @@
 # StreamRadio Release Notes
 
+## Version 1.5.1
+
+### Fixed
+
+- Handles for sorting the station list are operational again.
+
 ## Version 1.5.0
 
 ### Improved

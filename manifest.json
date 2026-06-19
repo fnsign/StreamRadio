@@ -1,7 +1,7 @@
 {
   "id": "streamradio",
   "name": "StreamRadio",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "minAppVersion": "1.0.0",
   "description": "Listen to favorite web radio stations from the right sidebar.",
   "author": "fnsign",

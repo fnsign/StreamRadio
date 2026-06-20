@@ -1,6 +1,6 @@
 {
   "name": "streamradio",
-  "version": "1.5.1",
+  "version": "1.5.2",
   "description": "Obsidian plugin for listening to favorite web radio stations from radio-browser.info.",
   "main": "main.js",
   "scripts": {

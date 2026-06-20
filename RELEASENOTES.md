@@ -7,6 +7,10 @@
 - UI improvements for the sleep timer.
 - Implemented a mouse hover, when Pomodoro timer is dimmed.
 
+### Fixed
+- The facet list for country, language and tag is refreshed, when server is avvailabel again
+**Note:** the database server on radio-browser.info is sometimes (very rarely) not instantly availabel. This is not an issue of the plugin but of the database serve itself. The search modal indicates the availability status of server and allows to refresh the status. 
+
 ## Version 1.5.2
 
 ### Added

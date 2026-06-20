@@ -134,11 +134,11 @@ export class StationSearchModal extends Modal {
     this.contentEl.empty();
   }
 
-  private async loadFacets(): Promise<void> {
+  private async loadFacets(forceRefresh = false): Promise<void> {
     void this.checkServerConnection();
 
     try {
-      const [countries, languages, tags] = await fetchRadioBrowserFacets();
+      const [countries, languages, tags] = await fetchRadioBrowserFacets(forceRefresh);
       this.populateDropdown(this.countryDropdown, countries, 'Any country');
       this.populateDropdown(this.languageDropdown, languages, 'Any language');
       this.populateDropdown(this.tagDropdown, tags, 'Any tag');
@@ -182,7 +182,7 @@ export class StationSearchModal extends Modal {
     });
     setIcon(refreshButton, 'refresh-cw');
     refreshButton.addEventListener('click', () => {
-      void this.checkServerConnection();
+      void this.loadFacets(true);
     });
   }
 

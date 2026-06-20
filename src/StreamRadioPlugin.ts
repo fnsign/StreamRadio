@@ -349,6 +349,18 @@ export default class StreamRadioPlugin extends Plugin {
     }
 
     const audio = new Audio(station.streamUrl);
+    let playbackFailureHandled = false;
+    const handlePlaybackFailure = (message: string): void => {
+      if (playbackFailureHandled) {
+        return;
+      }
+
+      playbackFailureHandled = true;
+      this.isPlaying = false;
+      this.icyMetadataService.stop();
+      this.refreshPlayerPlaybackViews();
+      new Notice(message);
+    };
     audio.preload = 'none';
     audio.volume = this.getEffectiveVolume();
     audio.addEventListener('ended', () => {
@@ -371,10 +383,7 @@ export default class StreamRadioPlugin extends Plugin {
     });
     audio.addEventListener('error', () => {
       if (this.audio === audio) {
-        this.isPlaying = false;
-        this.icyMetadataService.stop();
-        this.refreshPlayerPlaybackViews();
-        new Notice(`Could not play ${station.name}.`);
+        handlePlaybackFailure(`Could not play ${station.name}.`);
       }
     });
 
@@ -387,10 +396,7 @@ export default class StreamRadioPlugin extends Plugin {
       await this.saveSettings(false);
       this.refreshPlayerPlaybackViews();
     } catch {
-      this.isPlaying = false;
-      this.icyMetadataService.stop();
-      this.refreshPlayerPlaybackViews();
-      new Notice(`Could not start ${station.name}.`);
+      handlePlaybackFailure(`Could not start ${station.name}.`);
     }
   }
 
@@ -402,6 +408,34 @@ export default class StreamRadioPlugin extends Plugin {
     this.icyMetadataService.stop();
     this.isPlaying = false;
     this.refreshPlayerPlaybackViews();
+  }
+
+  async resumePlaybackWithFade(durationMs = 1000): Promise<void> {
+    const station = this.getCurrentStation();
+    if (!this.audio || this.isPlaying || !station?.streamUrl) {
+      return;
+    }
+
+    const targetMultiplier = this.isPomodoroVolumeDucked ? 0.15 : 1;
+    this.volumeFadeToken += 1;
+    this.clearVolumeFade();
+    this.volumeFadeMultiplier = 0;
+    this.applyAudioVolume();
+
+    try {
+      await this.audio.play();
+      this.isPlaying = true;
+      this.icyMetadataService.start(station.streamUrl);
+      this.refreshPlayerPlaybackViews();
+      this.startVolumeFade(targetMultiplier, durationMs);
+    } catch {
+      this.volumeFadeMultiplier = targetMultiplier;
+      this.applyAudioVolume();
+      this.isPlaying = false;
+      this.icyMetadataService.stop();
+      this.refreshPlayerPlaybackViews();
+      new Notice(`Could not resume ${station.name}.`);
+    }
   }
 
   stopPlayback(): void {

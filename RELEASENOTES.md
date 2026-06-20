@@ -1,5 +1,12 @@
 # StreamRadio Release Notes
 
+## Version 1.5.3
+
+### Improved
+
+- UI improvements for the sleep timer.
+- Implemented a mouse hover, when Pomodoro timer is dimmed.
+
 ## Version 1.5.2
 
 ### Added

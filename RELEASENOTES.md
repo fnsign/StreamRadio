@@ -4,7 +4,7 @@
 
 ### Added
 
-- The station search now shows a connected Radio Browser server status and how many stations are available.
+- The station search shows connection status to the radio database server and how many stations are available.
 
 ### Improved
 

@@ -117,13 +117,25 @@ export default class StreamRadioPlugin extends Plugin {
     return [this.currentMetadata.title, this.currentMetadata.artist].filter(Boolean).join(' / ');
   }
 
+  hasActiveSleepTimer(): boolean {
+    return this.sleepTimerEndsAt > Date.now();
+  }
+
+  getSleepTimerRemainingSeconds(): number {
+    if (!this.hasActiveSleepTimer()) {
+      return 0;
+    }
+
+    return Math.ceil((this.sleepTimerEndsAt - Date.now()) / 1000);
+  }
+
   getSleepTimerLabel(): string {
-    if (!this.sleepTimerEndsAt) {
+    if (!this.hasActiveSleepTimer()) {
       return '';
     }
 
-    const remainingMs = Math.max(0, this.sleepTimerEndsAt - Date.now());
-    const remainingMinutes = Math.ceil(remainingMs / 60000);
+    const remainingSeconds = this.getSleepTimerRemainingSeconds();
+    const remainingMinutes = Math.ceil(remainingSeconds / 60);
     return `Timer: ${remainingMinutes} min. remaining`;
   }
 
@@ -457,10 +469,10 @@ export default class StreamRadioPlugin extends Plugin {
       new Notice('StreamRadio sleep timer stopped playback.');
     }, safeMinutes * 60000);
     this.sleepTimerRefreshId = window.setInterval(() => {
-      this.refreshPlayerViews();
+      this.refreshSleepTimerViews();
     }, TIMER_REFRESH_INTERVAL_MS);
 
-    this.refreshPlayerViews();
+    this.refreshSleepTimerViews();
   }
 
   clearSleepTimer(refresh = true): void {
@@ -475,7 +487,7 @@ export default class StreamRadioPlugin extends Plugin {
     this.sleepTimerRefreshId = null;
     this.sleepTimerEndsAt = 0;
     if (refresh) {
-      this.refreshPlayerViews();
+      this.refreshSleepTimerViews();
     }
   }
 
@@ -626,6 +638,10 @@ export default class StreamRadioPlugin extends Plugin {
 
   refreshPlayerPlaybackViews(): void {
     this.forEachPlayerView((view) => view.updatePlaybackDisplay());
+  }
+
+  refreshSleepTimerViews(): void {
+    this.forEachPlayerView((view) => view.updateSleepTimerDisplay());
   }
 
   refreshPlayerMetadataViews(): void {

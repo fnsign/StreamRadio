@@ -93,7 +93,7 @@ StreamRadio follows the Obsidian plugin guidelines:
 ## Disclosures
 
 - This plugin uses the network to search and play public web radio streams.
-- Station search data comes from radio-browser.info.
+- Station search data comes from public API-call on radio-browser.info.
 - Playback connects directly to the stream URL provided by each station.
 - Live track metadata is retrieved on desktop by opening one direct HTTP/HTTPS request to the currently playing station stream URL with the `Icy-MetaData: 1` request header. This request goes to the selected station stream, follows station redirects, and is stopped when playback stops.
 - This plugin does not require an account.

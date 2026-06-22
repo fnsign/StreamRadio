@@ -73,6 +73,8 @@ StreamRadio uses the public radio-browser.info API:
 
 The plugin uses Obsidian's `requestUrl` API for network requests. StreamRadio is a desktop-only Obsidian plugin and supports Windows, macOS, and Linux.
 
+**Note:** The database server on radio-browser.info is sometimes (very rarely) not instantly availabel. This is not an issue of the plugin but of the database server itself. The search modal indicates the availability status of server and allows to refresh the status. 
+
 ## Obsidian guidelines
 
 StreamRadio follows the Obsidian plugin guidelines:
@@ -91,7 +93,7 @@ StreamRadio follows the Obsidian plugin guidelines:
 ## Disclosures
 
 - This plugin uses the network to search and play public web radio streams.
-- Station search data comes from radio-browser.info.
+- Station search data comes from public API-call on radio-browser.info.
 - Playback connects directly to the stream URL provided by each station.
 - Live track metadata is retrieved on desktop by opening one direct HTTP/HTTPS request to the currently playing station stream URL with the `Icy-MetaData: 1` request header. This request goes to the selected station stream, follows station redirects, and is stopped when playback stops.
 - This plugin does not require an account.

@@ -77,6 +77,46 @@ export class StreamRadioPlayerView extends ItemView {
     this.setupMetadataScroller(metadataLine);
   }
 
+  updateSleepTimerDisplay(): void {
+    const container = this.containerEl.children[1] as HTMLElement | undefined;
+    if (!container) {
+      return;
+    }
+
+    const hasActiveSleepTimer = this.plugin.hasActiveSleepTimer();
+    container.classList.toggle('has-active-sleep-timer', hasActiveSleepTimer);
+
+    const timerButton = container.querySelector<HTMLButtonElement>('.streamradio-sleep-timer-button');
+    if (timerButton) {
+      timerButton.classList.toggle('is-active-sleep-timer', hasActiveSleepTimer);
+      timerButton.setAttr('aria-label', hasActiveSleepTimer ? 'Adjust sleep timer' : 'Set sleep timer');
+      timerButton.setAttr('aria-pressed', String(hasActiveSleepTimer));
+    }
+
+    const existingLabel = container.querySelector<HTMLElement>('.streamradio-sleep-timer-remaining');
+    if (!hasActiveSleepTimer) {
+      existingLabel?.remove();
+      return;
+    }
+
+    const nextLabel = `Sleep timer: ${formatPomodoroTime(this.plugin.getSleepTimerRemainingSeconds())}`;
+    if (existingLabel) {
+      if (existingLabel.textContent !== nextLabel) {
+        existingLabel.setText(nextLabel);
+      }
+      return;
+    }
+
+    const volumeControl = container.querySelector<HTMLElement>('.streamradio-volume-control');
+    if (!volumeControl) {
+      this.render();
+      return;
+    }
+
+    const label = container.createDiv({ cls: 'streamradio-sleep-timer-remaining', text: nextLabel });
+    volumeControl.insertAdjacentElement('afterend', label);
+  }
+
   updatePomodoroDisplay(): void {
     const container = this.containerEl.children[1] as HTMLElement;
     const wrapper = container.querySelector<HTMLElement>('.streamradio-pomodoro');
@@ -125,7 +165,9 @@ export class StreamRadioPlayerView extends ItemView {
     container.addClass('streamradio-player');
 
     const station = this.plugin.getCurrentStation();
+    const hasActiveSleepTimer = this.plugin.hasActiveSleepTimer();
     container.dataset.stationId = station?.stationuuid || '';
+    container.classList.toggle('has-active-sleep-timer', hasActiveSleepTimer);
     if (!station) {
       container.createDiv({ cls: 'streamradio-empty-state', text: 'Add favorite stations in StreamRadio settings.' });
       this.renderSelectionButton(container);
@@ -169,7 +211,14 @@ export class StreamRadioPlayerView extends ItemView {
       new StationPickerModal(this.app, this.plugin).open();
     });
 
-    const timerButton = controls.createEl('button', { cls: 'clickable-icon streamradio-control-button', attr: { type: 'button', 'aria-label': 'Set sleep timer' } });
+    const timerButton = controls.createEl('button', {
+      cls: `clickable-icon streamradio-control-button streamradio-sleep-timer-button${hasActiveSleepTimer ? ' is-active-sleep-timer' : ''}`,
+      attr: {
+        type: 'button',
+        'aria-label': hasActiveSleepTimer ? 'Adjust sleep timer' : 'Set sleep timer',
+        'aria-pressed': String(hasActiveSleepTimer),
+      },
+    });
     setIcon(timerButton, 'timer');
     timerButton.addEventListener('click', () => {
       new SleepTimerModal(this.app, this.plugin).open();
@@ -195,7 +244,8 @@ export class StreamRadioPlayerView extends ItemView {
       void this.plugin.toggleMute();
     });
 
-    const volumeSlider = volumeControl.createEl('input', {
+    const volumeStack = volumeControl.createDiv({ cls: 'streamradio-volume-stack' });
+    const volumeSlider = volumeStack.createEl('input', {
       attr: {
         type: 'range',
         min: '0',
@@ -212,12 +262,14 @@ export class StreamRadioPlayerView extends ItemView {
       void this.plugin.setVolume(Number(volumeSlider.value), true);
     });
 
-    this.renderPomodoroTools(container);
-
-    const timerLabel = this.plugin.getSleepTimerLabel();
-    if (timerLabel) {
-      container.createDiv({ cls: 'streamradio-timer-label', text: timerLabel });
+    if (hasActiveSleepTimer) {
+      volumeControl.insertAdjacentElement('afterend', container.createDiv({
+        cls: 'streamradio-sleep-timer-remaining',
+        text: `Sleep timer: ${formatPomodoroTime(this.plugin.getSleepTimerRemainingSeconds())}`,
+      }));
     }
+
+    this.renderPomodoroTools(container);
 
     this.renderPomodoro(container);
   }
@@ -251,6 +303,8 @@ export class StreamRadioPlayerView extends ItemView {
     if (playButton) {
       this.updateActivePlayButton(playButton, isPlaying, isPlaying ? 'Stop stream' : 'Start stream');
     }
+
+    container.classList.toggle('has-active-sleep-timer', this.plugin.hasActiveSleepTimer());
 
     const volumeButton = container.querySelector<HTMLButtonElement>('.streamradio-volume-icon-button');
     if (volumeButton) {

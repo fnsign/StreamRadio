@@ -10,6 +10,8 @@ export interface StreamRadioPluginApi extends Plugin {
   getCurrentStation(): FavoriteStation | null;
   getIsPlaying(): boolean;
   getMetadataLabel(): string;
+  hasActiveSleepTimer(): boolean;
+  getSleepTimerRemainingSeconds(): number;
   getSleepTimerLabel(): string;
   getVolume(): number;
   getDisplayedVolume(): number;

@@ -24,7 +24,11 @@ export async function fetchRadioBrowser<T>(path: string): Promise<T> {
   return response.json as T;
 }
 
-export async function fetchRadioBrowserFacets(): Promise<[RadioBrowserFacet[], RadioBrowserFacet[], RadioBrowserFacet[]]> {
+export async function fetchRadioBrowserFacets(forceRefresh = false): Promise<[RadioBrowserFacet[], RadioBrowserFacet[], RadioBrowserFacet[]]> {
+  if (forceRefresh) {
+    facetsRequest = null;
+  }
+
   facetsRequest ??= Promise.all([
     fetchRadioBrowser<RadioBrowserFacet[]>('/countries'),
     fetchRadioBrowser<RadioBrowserFacet[]>('/languages'),

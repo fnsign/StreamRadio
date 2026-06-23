@@ -14,6 +14,7 @@ interface CustomStationDraft {
 type ServerStatus = 'hidden' | 'pending' | 'connected' | 'disconnected';
 
 const SERVER_CONNECTION_TIMEOUT_MS = 10_000;
+const SERVER_CONNECTION_RETRY_DELAY_MS = 1_000;
 
 export class StationSearchModal extends Modal {
   private filters: SearchFilters = { name: '', country: '', language: '', tag: '' };
@@ -154,30 +155,38 @@ export class StationSearchModal extends Modal {
     const requestId = this.serverStatusRequestId + 1;
     this.serverStatusRequestId = requestId;
     this.renderServerStatus('pending', this.serverStationsCount);
+    const deadline = Date.now() + SERVER_CONNECTION_TIMEOUT_MS;
 
-    try {
-      const stats = await Promise.race([
-        fetchRadioBrowserServerStats(),
-        new Promise<never>((_, reject) => {
-          window.setTimeout(() => {
-            reject(new Error('Server connection timeout'));
-          }, SERVER_CONNECTION_TIMEOUT_MS);
-        }),
-      ]);
+    while (Date.now() < deadline) {
+      try {
+        const stats = await fetchRadioBrowserServerStats();
+        if (requestId !== this.serverStatusRequestId) {
+          return;
+        }
+
+        this.serverStationsCount = stats.stations || 0;
+        this.renderServerStatus('connected', this.serverStationsCount);
+        return;
+      } catch {}
+
       if (requestId !== this.serverStatusRequestId) {
         return;
       }
 
-      this.serverStationsCount = stats.stations || 0;
-      this.renderServerStatus('connected', this.serverStationsCount);
-    } catch {
-      if (requestId !== this.serverStatusRequestId) {
-        return;
+      const remainingMs = deadline - Date.now();
+      if (remainingMs <= 0) {
+        break;
       }
 
-      this.serverStationsCount = 0;
-      this.renderServerStatus('disconnected', this.serverStationsCount);
+      await new Promise((resolve) => window.setTimeout(resolve, Math.min(SERVER_CONNECTION_RETRY_DELAY_MS, remainingMs)));
     }
+
+    if (requestId !== this.serverStatusRequestId) {
+      return;
+    }
+
+    this.serverStationsCount = 0;
+    this.renderServerStatus('disconnected', this.serverStationsCount);
   }
 
   private renderServerStatus(status: ServerStatus, totalStations = 0): void {

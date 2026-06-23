@@ -646,6 +646,10 @@
   background: var(--text-success, var(--color-green));
 }
 
+.streamradio-server-status.is-pending .streamradio-server-status-indicator {
+  background: var(--color-yellow, #e0b400);
+}
+
 .streamradio-server-status.is-disconnected .streamradio-server-status-indicator {
   background: var(--text-warning, var(--color-orange));
 }

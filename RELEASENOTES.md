@@ -1,5 +1,11 @@
 # StreamRadio Release Notes
 
+## Version 1.5.4
+
+### Improved
+
+- UI improvements for the connection status.
+
 ## Version 1.5.3
 
 ### Improved

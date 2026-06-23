@@ -11,6 +11,10 @@ interface CustomStationDraft {
   homepage: string;
 }
 
+type ServerStatus = 'hidden' | 'pending' | 'connected' | 'disconnected';
+
+const SERVER_CONNECTION_TIMEOUT_MS = 10_000;
+
 export class StationSearchModal extends Modal {
   private filters: SearchFilters = { name: '', country: '', language: '', tag: '' };
   private activeFilters: SearchFilters = { name: '', country: '', language: '', tag: '' };
@@ -33,6 +37,7 @@ export class StationSearchModal extends Modal {
   private previewStationId = '';
   private shouldResumePlaybackOnClose = false;
   private searchRequestId = 0;
+  private serverStatusRequestId = 0;
 
   constructor(app: App, private plugin: StreamRadioPluginApi, private onSaved: () => void) {
     super(app);
@@ -142,28 +147,46 @@ export class StationSearchModal extends Modal {
       this.populateDropdown(this.countryDropdown, countries, 'Any country');
       this.populateDropdown(this.languageDropdown, languages, 'Any language');
       this.populateDropdown(this.tagDropdown, tags, 'Any tag');
-    } catch {
-      this.renderServerStatus('disconnected');
-    }
+    } catch {}
   }
 
   private async checkServerConnection(): Promise<void> {
+    const requestId = this.serverStatusRequestId + 1;
+    this.serverStatusRequestId = requestId;
+    this.renderServerStatus('pending', this.serverStationsCount);
+
     try {
-      const stats = await fetchRadioBrowserServerStats();
+      const stats = await Promise.race([
+        fetchRadioBrowserServerStats(),
+        new Promise<never>((_, reject) => {
+          window.setTimeout(() => {
+            reject(new Error('Server connection timeout'));
+          }, SERVER_CONNECTION_TIMEOUT_MS);
+        }),
+      ]);
+      if (requestId !== this.serverStatusRequestId) {
+        return;
+      }
+
       this.serverStationsCount = stats.stations || 0;
       this.renderServerStatus('connected', this.serverStationsCount);
     } catch {
+      if (requestId !== this.serverStatusRequestId) {
+        return;
+      }
+
       this.serverStationsCount = 0;
       this.renderServerStatus('disconnected', this.serverStationsCount);
     }
   }
 
-  private renderServerStatus(status: 'hidden' | 'connected' | 'disconnected', totalStations = 0): void {
+  private renderServerStatus(status: ServerStatus, totalStations = 0): void {
     if (!this.serverStatusEl) {
       return;
     }
 
     this.serverStatusEl.empty();
+    this.serverStatusEl.toggleClass('is-pending', status === 'pending');
     this.serverStatusEl.toggleClass('is-connected', status === 'connected');
     this.serverStatusEl.toggleClass('is-disconnected', status === 'disconnected');
     this.serverStatusEl.toggleClass('is-hidden', status === 'hidden');
@@ -173,8 +196,18 @@ export class StationSearchModal extends Modal {
     }
 
     this.serverStatusEl.createSpan({ cls: 'streamradio-server-status-indicator' });
-    this.serverStatusEl.createSpan({ cls: 'streamradio-server-status-text', text: status === 'connected' ? 'Server connected.' : 'Server not connected. Try again later.' });
-    this.serverStatusEl.createSpan({ cls: 'streamradio-server-status-count', text: `${totalStations.toLocaleString()} stations available.` });
+    this.serverStatusEl.createSpan({
+      cls: 'streamradio-server-status-text',
+      text: status === 'pending'
+        ? '...connecting...'
+        : status === 'connected'
+          ? 'Server connected.'
+          : 'Server not connected. Try again later.',
+    });
+
+    if (status !== 'pending') {
+      this.serverStatusEl.createSpan({ cls: 'streamradio-server-status-count', text: `${totalStations.toLocaleString()} stations available.` });
+    }
 
     const refreshButton = this.serverStatusEl.createEl('button', {
       cls: 'clickable-icon streamradio-icon-button streamradio-server-status-refresh',

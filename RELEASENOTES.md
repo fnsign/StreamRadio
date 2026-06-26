@@ -1,6 +1,6 @@
 # StreamRadio Release Notes
 
-## Version 1.5.4
+## Version 1.5.5
 
 ### Improved
 - UI improvment for manual refreshing server connection

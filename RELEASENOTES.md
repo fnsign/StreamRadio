@@ -1,5 +1,15 @@
 # StreamRadio Release Notes
 
+## Version 1.5.4
+
+### Improved
+- UI improvment for manual refreshing server connection
+
+### Fixed
+- UUID generation method enhanced
+- Fix for regex patterns for metadata extraction
+
+
 ## Version 1.5.3
 
 ### Improved

@@ -8,8 +8,8 @@ const EMPTY_METADATA: IcyTrackMetadata = { title: '', artist: '' };
 const EMPTY_METADATA_RETRY_MS = 5 * 60 * 1000;
 const ERROR_RETRY_MS = 30 * 1000;
 const MAX_REDIRECTS = 5;
-const METADATA_FIELD_FRAGMENT_PATTERN = /(?:^|[\s;|])Stream(?:Title|Url|Name|Genre)\s*=\s*['"]?.*$/i;
-const PIPE_TRAILER_PATTERN = /\s*\|{2}.*$/;
+const METADATA_FIELD_FRAGMENT_PATTERN = /(?:^|[\s;|])Stream(?:Title|Url|Name|Genre)\s*=\s*['"]?[^\r\n]*$/i;
+const PIPE_TRAILER_PATTERN = /\s*\|{2}[^\r\n]*$/;
 const URL_PATTERN = /https?:\/\//i;
 const NOISE_ONLY_PATTERN = /^[\s'"|_./\\:;,[\]{}()\-~^*+=\d]+$/;
 
@@ -191,7 +191,8 @@ export class IcyMetadataService {
   }
 
   private cleanMetadataValue(value: string): string {
-    const normalized = value
+    const limited = value.length > 8192 ? value.slice(0, 8192) : value;
+    const normalized = limited
       .replace(/\0/g, '')
       .replace(METADATA_FIELD_FRAGMENT_PATTERN, '')
       .replace(PIPE_TRAILER_PATTERN, '')

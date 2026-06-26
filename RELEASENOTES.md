@@ -1,5 +1,15 @@
 # StreamRadio Release Notes
 
+## Version 1.5.4
+
+### Improved
+
+- UI improvements for the connection status.
+
+### Fixed
+- Hardened regex processing for ICY metadata
+- fixed potential insecure randomness
+
 ## Version 1.5.3
 
 ### Improved

@@ -11,6 +11,11 @@ interface CustomStationDraft {
   homepage: string;
 }
 
+type ServerStatus = 'hidden' | 'pending' | 'connected' | 'disconnected';
+
+const SERVER_CONNECTION_TIMEOUT_MS = 10_000;
+const SERVER_CONNECTION_RETRY_DELAY_MS = 1_000;
+
 export class StationSearchModal extends Modal {
   private filters: SearchFilters = { name: '', country: '', language: '', tag: '' };
   private activeFilters: SearchFilters = { name: '', country: '', language: '', tag: '' };
@@ -33,6 +38,7 @@ export class StationSearchModal extends Modal {
   private previewStationId = '';
   private shouldResumePlaybackOnClose = false;
   private searchRequestId = 0;
+  private serverStatusRequestId = 0;
 
   constructor(app: App, private plugin: StreamRadioPluginApi, private onSaved: () => void) {
     super(app);
@@ -142,28 +148,54 @@ export class StationSearchModal extends Modal {
       this.populateDropdown(this.countryDropdown, countries, 'Any country');
       this.populateDropdown(this.languageDropdown, languages, 'Any language');
       this.populateDropdown(this.tagDropdown, tags, 'Any tag');
-    } catch {
-      this.renderServerStatus('disconnected');
-    }
+    } catch {}
   }
 
   private async checkServerConnection(): Promise<void> {
-    try {
-      const stats = await fetchRadioBrowserServerStats();
-      this.serverStationsCount = stats.stations || 0;
-      this.renderServerStatus('connected', this.serverStationsCount);
-    } catch {
-      this.serverStationsCount = 0;
-      this.renderServerStatus('disconnected', this.serverStationsCount);
+    const requestId = this.serverStatusRequestId + 1;
+    this.serverStatusRequestId = requestId;
+    this.renderServerStatus('pending', this.serverStationsCount);
+    const deadline = Date.now() + SERVER_CONNECTION_TIMEOUT_MS;
+
+    while (Date.now() < deadline) {
+      try {
+        const stats = await fetchRadioBrowserServerStats();
+        if (requestId !== this.serverStatusRequestId) {
+          return;
+        }
+
+        this.serverStationsCount = stats.stations || 0;
+        this.renderServerStatus('connected', this.serverStationsCount);
+        return;
+      } catch {}
+
+      if (requestId !== this.serverStatusRequestId) {
+        return;
+      }
+
+      const remainingMs = deadline - Date.now();
+      if (remainingMs <= 0) {
+        break;
+      }
+
+      await new Promise((resolve) => window.setTimeout(resolve, Math.min(SERVER_CONNECTION_RETRY_DELAY_MS, remainingMs)));
     }
+
+    if (requestId !== this.serverStatusRequestId) {
+      return;
+    }
+
+    this.serverStationsCount = 0;
+    this.renderServerStatus('disconnected', this.serverStationsCount);
   }
 
-  private renderServerStatus(status: 'hidden' | 'connected' | 'disconnected', totalStations = 0): void {
+  private renderServerStatus(status: ServerStatus, totalStations = 0): void {
     if (!this.serverStatusEl) {
       return;
     }
 
     this.serverStatusEl.empty();
+    this.serverStatusEl.toggleClass('is-pending', status === 'pending');
     this.serverStatusEl.toggleClass('is-connected', status === 'connected');
     this.serverStatusEl.toggleClass('is-disconnected', status === 'disconnected');
     this.serverStatusEl.toggleClass('is-hidden', status === 'hidden');
@@ -173,8 +205,18 @@ export class StationSearchModal extends Modal {
     }
 
     this.serverStatusEl.createSpan({ cls: 'streamradio-server-status-indicator' });
-    this.serverStatusEl.createSpan({ cls: 'streamradio-server-status-text', text: status === 'connected' ? 'Server connected.' : 'Server not connected. Try again later.' });
-    this.serverStatusEl.createSpan({ cls: 'streamradio-server-status-count', text: `${totalStations.toLocaleString()} stations available.` });
+    this.serverStatusEl.createSpan({
+      cls: 'streamradio-server-status-text',
+      text: status === 'pending'
+        ? '...connecting...'
+        : status === 'connected'
+          ? 'Server connected.'
+          : 'Server not connected. Try again later.',
+    });
+
+    if (status !== 'pending') {
+      this.serverStatusEl.createSpan({ cls: 'streamradio-server-status-count', text: `${totalStations.toLocaleString()} stations available.` });
+    }
 
     const refreshButton = this.serverStatusEl.createEl('button', {
       cls: 'clickable-icon streamradio-icon-button streamradio-server-status-refresh',
@@ -646,9 +688,25 @@ function normalizeHttpUrl(value: string): string {
 }
 
 function createCustomStationId(): string {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return `custom-${crypto.randomUUID()}`;
+  const webCrypto = (globalThis as unknown as { crypto?: Crypto }).crypto;
+  if (webCrypto) {
+    const hasRandomUUID = typeof (webCrypto as unknown as { randomUUID?: unknown }).randomUUID === 'function';
+    if (hasRandomUUID) {
+      return `custom-${(webCrypto as unknown as { randomUUID: () => string }).randomUUID()}`;
+    }
+
+    if (typeof webCrypto.getRandomValues === 'function') {
+      const bytes = new Uint8Array(16);
+      webCrypto.getRandomValues(bytes);
+      bytes[6] = (bytes[6] & 0x0f) | 0x40;
+      bytes[8] = (bytes[8] & 0x3f) | 0x80;
+      const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+      const uuid = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+      return `custom-${uuid}`;
+    }
   }
 
-  return `custom-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const anyFn = createCustomStationId as unknown as { _counter?: number };
+  anyFn._counter = (anyFn._counter ?? 0) + 1;
+  return `custom-fallback-${Date.now()}-${anyFn._counter}`;
 }

@@ -9,7 +9,6 @@
 - UUID generation method enhanced
 - Fix for regex patterns for metadata extraction
 
-
 ## Version 1.5.3
 
 ### Improved

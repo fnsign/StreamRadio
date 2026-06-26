@@ -148,7 +148,9 @@ export class StationSearchModal extends Modal {
       this.populateDropdown(this.countryDropdown, countries, 'Any country');
       this.populateDropdown(this.languageDropdown, languages, 'Any language');
       this.populateDropdown(this.tagDropdown, tags, 'Any tag');
-    } catch {}
+    } catch (error) {
+      console.debug('StreamRadio: Failed to load facets', error);
+    }
   }
 
   private async checkServerConnection(): Promise<void> {
@@ -167,7 +169,9 @@ export class StationSearchModal extends Modal {
         this.serverStationsCount = stats.stations || 0;
         this.renderServerStatus('connected', this.serverStationsCount);
         return;
-      } catch {}
+      } catch (error) {
+        console.debug('StreamRadio: Server status check failed - will retry', error);
+      }
 
       if (requestId !== this.serverStatusRequestId) {
         return;
@@ -688,7 +692,7 @@ function normalizeHttpUrl(value: string): string {
 }
 
 function createCustomStationId(): string {
-  const webCrypto = (globalThis as unknown as { crypto?: Crypto }).crypto;
+  const webCrypto = getWindowCrypto();
   if (webCrypto) {
     const hasRandomUUID = typeof (webCrypto as unknown as { randomUUID?: unknown }).randomUUID === 'function';
     if (hasRandomUUID) {
@@ -709,4 +713,24 @@ function createCustomStationId(): string {
   const anyFn = createCustomStationId as unknown as { _counter?: number };
   anyFn._counter = (anyFn._counter ?? 0) + 1;
   return `custom-fallback-${Date.now()}-${anyFn._counter}`;
+}
+
+declare const activeWindow: Window | undefined;
+
+function getWindowCrypto(): Crypto | undefined {
+  try {
+    if (typeof activeWindow !== 'undefined' && activeWindow?.crypto) {
+      return activeWindow.crypto;
+    }
+  } catch (error) {
+    console.debug('StreamRadio: activeWindow.crypto access failed', error);
+  }
+  try {
+    if (typeof window !== 'undefined' && window?.crypto) {
+      return window.crypto;
+    }
+  } catch (error) {
+    console.debug('StreamRadio: window.crypto access failed', error);
+  }
+  return undefined;
 }

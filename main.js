@@ -7,18 +7,11 @@ var Ut=Object.create;var G=Object.defineProperty;var $t=Object.getOwnPropertyDes
 ## Version 1.5.4
 
 ### Improved
-
-- UI improvements for the connection status.
-
-## Version 1.5.4
-
-### Improved
 - UI improvment for manual refreshing server connection
 
 ### Fixed
 - UUID generation method enhanced
 - Fix for regex patterns for metadata extraction
-
 
 ## Version 1.5.3
 

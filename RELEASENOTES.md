@@ -6,6 +6,10 @@
 
 - UI improvements for the connection status.
 
+### Fixed
+- Hardened regex processing for ICY metadata
+- fixed potential insecure randomness
+
 ## Version 1.5.3
 
 ### Improved
@@ -16,8 +20,6 @@
 ### Fixed
 - The facet list for country, language and tag is refreshed, when server is availabel again
 **Note:** the database server on radio-browser.info is sometimes (very rarely) not instantly availabel. This is not an issue of the plugin but of the database server itself. The search modal indicates the availability status of server and allows to refresh the status. 
-- Hardened regex processing for ICY metadata
-- fixed potential insecure randomness
 
 ## Version 1.5.2
 

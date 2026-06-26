@@ -688,9 +688,25 @@ function normalizeHttpUrl(value: string): string {
 }
 
 function createCustomStationId(): string {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return `custom-${crypto.randomUUID()}`;
+  const webCrypto = (globalThis as unknown as { crypto?: Crypto }).crypto;
+  if (webCrypto) {
+    const hasRandomUUID = typeof (webCrypto as unknown as { randomUUID?: unknown }).randomUUID === 'function';
+    if (hasRandomUUID) {
+      return `custom-${(webCrypto as unknown as { randomUUID: () => string }).randomUUID()}`;
+    }
+
+    if (typeof webCrypto.getRandomValues === 'function') {
+      const bytes = new Uint8Array(16);
+      webCrypto.getRandomValues(bytes);
+      bytes[6] = (bytes[6] & 0x0f) | 0x40;
+      bytes[8] = (bytes[8] & 0x3f) | 0x80;
+      const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+      const uuid = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+      return `custom-${uuid}`;
+    }
   }
 
-  return `custom-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const anyFn = createCustomStationId as unknown as { _counter?: number };
+  anyFn._counter = (anyFn._counter ?? 0) + 1;
+  return `custom-fallback-${Date.now()}-${anyFn._counter}`;
 }

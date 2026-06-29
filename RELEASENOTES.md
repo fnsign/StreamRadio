@@ -1,5 +1,10 @@
 # StreamRadio Release Notes
 
+## Version 1.5.6
+
+### Improved
+- Refactor: removed icecast-parser dependency and implemented custom StreamReader
+
 ## Version 1.5.5
 
 ### Improved

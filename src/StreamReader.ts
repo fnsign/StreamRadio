@@ -25,6 +25,26 @@ function parseMetadata(metadata: Buffer): Map<string, string> {
   return map;
 }
 
+function toBuffer(chunk: unknown): Buffer {
+  if (Buffer.isBuffer(chunk)) {
+    return chunk;
+  }
+
+  if (typeof chunk === 'string') {
+    return Buffer.from(chunk);
+  }
+
+  if (chunk instanceof ArrayBuffer) {
+    return Buffer.from(chunk);
+  }
+
+  if (ArrayBuffer.isView(chunk)) {
+    return Buffer.from(chunk.buffer, chunk.byteOffset, chunk.byteLength);
+  }
+
+  return Buffer.from(String(chunk));
+}
+
 function trampoline<TArgs extends unknown[], TResult>(fn: (...args: TArgs) => Continuation<TResult>) {
   return function executor(...args: TArgs): TResult {
     let result = fn(...args);
@@ -67,14 +87,14 @@ const onData = trampoline((stream: StreamReader, chunk: Buffer, done: TransformC
   }
 
   return () => {
-    const buffer = chunk.slice(0, stream.bytesLeft);
+    const buffer = chunk.subarray(0, stream.bytesLeft);
     return processData(stream, buffer, (error) => {
       if (error !== null && typeof error !== 'undefined') {
         return done(error);
       }
 
       if (chunk.length > buffer.length) {
-        return () => onData(stream, chunk.slice(buffer.length), done);
+        return () => onData(stream, chunk.subarray(buffer.length), done);
       }
 
       return undefined;
@@ -91,11 +111,11 @@ export class StreamReader extends Transform {
 
   constructor(readonly icyMetaInt: number) {
     super();
-    this.passthrough(this.icyMetaInt, this.onMetaSectionStart.bind(this));
+    this.passthrough(this.icyMetaInt, () => this.onMetaSectionStart());
   }
 
-  _transform(chunk: Buffer, _encoding: BufferEncoding, done: TransformCallback): void {
-    onData(this, chunk, done);
+  _transform(chunk: unknown, _encoding: BufferEncoding, done: TransformCallback): void {
+    onData(this, toBuffer(chunk), done);
   }
 
   protected bytes(length: number, callback: (chunk: Buffer) => void): void {
@@ -111,22 +131,22 @@ export class StreamReader extends Transform {
   }
 
   protected onMetaSectionStart(): void {
-    this.bytes(1, this.onMetaSectionLengthByte.bind(this));
+    this.bytes(1, (chunk) => this.onMetaSectionLengthByte(chunk));
   }
 
   protected onMetaSectionLengthByte(chunk: Buffer): void {
     const length = chunk[0] * METADATA_BLOCK_SIZE;
 
     if (length > 0) {
-      this.bytes(length, this.onMetaData.bind(this));
+      this.bytes(length, (metadataChunk) => this.onMetaData(metadataChunk));
       return;
     }
 
-    this.passthrough(this.icyMetaInt, this.onMetaSectionStart.bind(this));
+    this.passthrough(this.icyMetaInt, () => this.onMetaSectionStart());
   }
 
   protected onMetaData(chunk: Buffer): void {
     this.emit('metadata', parseMetadata(chunk));
-    this.passthrough(this.icyMetaInt, this.onMetaSectionStart.bind(this));
+    this.passthrough(this.icyMetaInt, () => this.onMetaSectionStart());
   }
 }

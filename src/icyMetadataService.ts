@@ -1,7 +1,9 @@
+/// <reference types="node" />
+
 import http from 'http';
 import https from 'https';
-import { StreamReader } from 'icecast-parser/dist/StreamReader';
 
+import { StreamReader } from './StreamReader';
 import type { IcyTrackMetadata } from './types';
 
 const EMPTY_METADATA: IcyTrackMetadata = { title: '', artist: '' };
